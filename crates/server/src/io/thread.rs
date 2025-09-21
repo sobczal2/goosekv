@@ -1,7 +1,7 @@
 use std::{net::SocketAddr, rc::Rc};
 
 use futures_lite::{
-    AsyncWriteExt, StreamExt
+    AsyncWriteExt,
 };
 use glommio::{
     channels::shared_channel::{
@@ -19,7 +19,7 @@ use goosekv_protocol::{
 };
 use tracing::{
     error,
-    info, warn,
+    info,
 };
 
 use crate::context::Context;
