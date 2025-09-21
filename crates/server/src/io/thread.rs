@@ -1,8 +1,9 @@
-use std::{net::SocketAddr};
+use std::{io::Read, net::SocketAddr, pin};
 
-use futures_lite::{AsyncReadExt, AsyncWriteExt};
-use glommio::{channels::{channel_mesh::{PartialMesh, Role}, shared_channel::{self}}, net::TcpListener, prelude::*, ExecutorJoinHandle};
-use goosekv_protocol::parser::Parser;
+use anyhow::bail;
+use futures_lite::{pin, AsyncReadExt, AsyncWriteExt};
+use glommio::{channels::{channel_mesh::{PartialMesh, Role, Senders}, shared_channel::{self, SharedReceiver}}, net::{TcpListener, TcpStream}, prelude::*, ExecutorJoinHandle};
+use goosekv_protocol::{driver::{AsyncDriver, DriverResult}, frame::Frame, parser::Parser};
 
 use crate::context::Context;
 
@@ -30,21 +31,21 @@ impl Thread
 
     async fn run(self) -> Self {
         let listener = TcpListener::bind(self.addr).expect("failed to bind listener");
-        let (sender, _) = self.mesh.clone().join(Role::Producer).await.unwrap();
-        let mut parser = Parser::new();
+        let (senders, _) = self.mesh.clone().join(Role::Producer).await.unwrap();
 
         loop {
             match listener.accept().await {
                 Ok(mut stream) => {
-                    let (respond_sender, respond_receiver) = shared_channel::new_bounded(16);
-                    let read = stream.read(parser.buf_mut()).await.unwrap();
-                    let context = Context::new(parser.parse().unwrap().unwrap(), respond_sender);
-                    sender.send_to(context.get_shard(sender.nr_consumers()), context).await.unwrap();
-                    let respond_receiver = respond_receiver.connect().await;
-                    while let Some(response_frame) = respond_receiver.recv().await {
-                        stream.write_all(b"test").await.unwrap();
+                    match handle_stream(&mut stream, &senders).await {
+                        Ok(receiver) => {
+                            let receiver = receiver.connect().await;
+                            while let Some(bytes) = receiver.recv().await {
+                                stream.write_all(&bytes).await.unwrap();
+                            }
+                        },
+                        Err(err) => stream.write_all(&Frame::SimpleError(err.to_string()).bytes()).await.unwrap(),
                     }
-                },
+                }
                 Err(err) => {
                     println!("listener.accept failed with: {err:?}");
                     break;
@@ -54,4 +55,19 @@ impl Thread
 
         self
     }
+}
+
+async fn handle_stream(stream: &mut TcpStream, senders: &Senders<Context>) -> anyhow::Result<SharedReceiver<Box<[u8]>>> {
+    pin!(stream);
+
+    let driver = AsyncDriver::new();
+    let request = driver.handle(&mut stream).await?;
+
+    let (sender, receiver) = shared_channel::new_bounded(16);
+    let context = Context::new(request, sender);
+    if senders.send_to(context.get_shard(senders.nr_consumers()), context).await.is_err() {
+        bail!("failed to distribute command");
+    }
+
+    Ok(receiver)
 }

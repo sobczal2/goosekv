@@ -12,4 +12,5 @@ goosekv-protocol.workspace = true
 glommio.workspace = true
 thiserror.workspace = true
 futures-lite.workspace = true
+anyhow.workspace = true
 

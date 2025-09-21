@@ -4,16 +4,7 @@ use bytes::{
 };
 use thiserror::Error;
 
-use crate::frame::{
-    ARRAY_FIRST_BYTE,
-    BULK_STRING_FIRST_BYTE,
-    Frame,
-    INTEGER_FIRST_BYTE,
-    NULL_FIRST_BYTE,
-    SIMPLE_ERROR_FIRST_BYTE,
-    SIMPLE_STRING_FIRST_BYTE,
-    TERMINATOR,
-};
+use crate::frame::{Frame, ARRAY_FIRST_CHAR, BULK_STRING_FIRST_CHAR, INTEGER_FIRST_CHAR, NULL_FIRST_CHAR, SIMPLE_ERROR_FIRST_CHAR, SIMPLE_STRING_FIRST_CHAR, TERMINATOR_STR};
 
 #[derive(Debug, Error)]
 pub enum ParsingError {
@@ -45,15 +36,13 @@ impl Parser {
             return Ok(None);
         }
 
-        println!("buf: {:?}", str::from_utf8(self.buf.as_ref()));
-
-        match self.buf[0] {
-            SIMPLE_STRING_FIRST_BYTE => self.parse_simple_string(),
-            SIMPLE_ERROR_FIRST_BYTE => self.parse_simple_error(),
-            INTEGER_FIRST_BYTE => self.parse_integer(),
-            BULK_STRING_FIRST_BYTE => self.parse_bulk_string(),
-            ARRAY_FIRST_BYTE => self.parse_array(),
-            NULL_FIRST_BYTE => self.parse_null(),
+        match self.buf[0] as char {
+            SIMPLE_STRING_FIRST_CHAR => self.parse_simple_string(),
+            SIMPLE_ERROR_FIRST_CHAR => self.parse_simple_error(),
+            INTEGER_FIRST_CHAR => self.parse_integer(),
+            BULK_STRING_FIRST_CHAR=> self.parse_bulk_string(),
+            ARRAY_FIRST_CHAR => self.parse_array(),
+            NULL_FIRST_CHAR => self.parse_null(),
             _ => Err(ParsingError::InvalidFirstByte),
         }
     }
@@ -63,12 +52,12 @@ impl Parser {
     }
 
     fn parse_simple_string(&mut self) -> ParsingResult<Option<Frame>> {
-        if let Some(end_index) = self.buf.windows(2).position(|w| w == TERMINATOR) {
+        if let Some(end_index) = self.buf.windows(2).position(|w| w == TERMINATOR_STR.as_bytes()) {
             let value = &self.buf[1..end_index];
             let value = str::from_utf8(value).map_err(|_| ParsingError::InvalidUtf8)?;
 
             let frame = Frame::SimpleString(value.to_string());
-            self.buf.advance(end_index + TERMINATOR.len());
+            self.buf.advance(end_index + TERMINATOR_STR.len());
 
             Ok(Some(frame))
         } else {
@@ -77,12 +66,12 @@ impl Parser {
     }
 
     fn parse_simple_error(&mut self) -> ParsingResult<Option<Frame>> {
-        if let Some(end_index) = self.buf.windows(2).position(|w| w == TERMINATOR) {
+        if let Some(end_index) = self.buf.windows(2).position(|w| w == TERMINATOR_STR.as_bytes()) {
             let value = &self.buf[1..end_index];
             let value = str::from_utf8(value).map_err(|_| ParsingError::InvalidUtf8)?;
 
             let frame = Frame::SimpleError(value.to_string());
-            self.buf.advance(end_index + TERMINATOR.len());
+            self.buf.advance(end_index + TERMINATOR_STR.len());
 
             Ok(Some(frame))
         } else {
@@ -91,13 +80,13 @@ impl Parser {
     }
 
     fn parse_integer(&mut self) -> ParsingResult<Option<Frame>> {
-        if let Some(end_index) = self.buf.windows(2).position(|w| w == TERMINATOR) {
+        if let Some(end_index) = self.buf.windows(2).position(|w| w == TERMINATOR_STR.as_bytes()) {
             let value = &self.buf[1..end_index];
             let value = str::from_utf8(value).map_err(|_| ParsingError::InvalidUtf8)?;
             let value = value.parse().map_err(|_| ParsingError::InvalidInteger)?;
 
             let frame = Frame::Integer(value);
-            self.buf.advance(end_index + TERMINATOR.len());
+            self.buf.advance(end_index + TERMINATOR_STR.len());
 
             Ok(Some(frame))
         } else {
@@ -106,17 +95,17 @@ impl Parser {
     }
 
     fn parse_bulk_string(&mut self) -> ParsingResult<Option<Frame>> {
-        if let Some(end_index) = self.buf.windows(2).position(|w| w == TERMINATOR) {
+        if let Some(end_index) = self.buf.windows(2).position(|w| w == TERMINATOR_STR.as_bytes()) {
             let length = &self.buf[1..end_index];
             let length = str::from_utf8(length).map_err(|_| ParsingError::InvalidUtf8)?;
             let length = length.parse::<usize>().map_err(|_| ParsingError::InvalidInteger)?;
 
             let value =
-                &self.buf[end_index + TERMINATOR.len()..end_index + TERMINATOR.len() + length];
+                &self.buf[end_index + TERMINATOR_STR.len()..end_index + TERMINATOR_STR.len() + length];
             let value = str::from_utf8(value).map_err(|_| ParsingError::InvalidUtf8)?;
 
             let frame = Frame::BulkString(value.to_string());
-            self.buf.advance(end_index + TERMINATOR.len() + length + TERMINATOR.len());
+            self.buf.advance(end_index + TERMINATOR_STR.len() + length + TERMINATOR_STR.len());
 
             Ok(Some(frame))
         } else {
@@ -125,12 +114,12 @@ impl Parser {
     }
 
     fn parse_array(&mut self) -> ParsingResult<Option<Frame>> {
-        if let Some(end_index) = self.buf.windows(2).position(|w| w == TERMINATOR) {
+        if let Some(end_index) = self.buf.windows(2).position(|w| w == TERMINATOR_STR.as_bytes()) {
             let value = &self.buf[1..end_index];
             let value = str::from_utf8(value).map_err(|_| ParsingError::InvalidUtf8)?;
             let value = value.parse::<usize>().map_err(|_| ParsingError::InvalidInteger)?;
 
-            self.buf.advance(end_index + TERMINATOR.len());
+            self.buf.advance(end_index + TERMINATOR_STR.len());
 
             let values = (0..value)
                 .flat_map(|_| self.parse().map(|v| v.ok_or(ParsingError::InvalidArray)))
@@ -148,7 +137,7 @@ impl Parser {
             return Ok(None);
         }
 
-        if &self.buf[1..3] != TERMINATOR {
+        if &self.buf[1..3] != TERMINATOR_STR.as_bytes() {
             return Err(ParsingError::InvalidNull);
         }
 

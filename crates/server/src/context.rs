@@ -1,3 +1,5 @@
+use std::str::Bytes;
+
 use glommio::channels::shared_channel::SharedSender;
 use goosekv_protocol::frame::Frame;
 use thiserror::Error;
@@ -10,12 +12,12 @@ pub struct ResponseClosed;
 pub struct Context
 {
     request: Frame,
-    respond: SharedSender<Frame>,
+    respond: SharedSender<Box<[u8]>>,
 }
 
 impl Context
 {
-    pub fn new(request: Frame, respond: SharedSender<Frame>) -> Self {
+    pub fn new(request: Frame, respond: SharedSender<Box<[u8]>>) -> Self {
         Self { request, respond }
     }
     pub fn request(&self) -> &Frame {
@@ -27,7 +29,7 @@ impl Context
     {
         let sender = self.respond.connect().await;
         for frame in frames.into_iter() {
-            sender.send(frame).await.map_err(|_| ResponseClosed)?;
+            sender.send(frame.bytes()).await.map_err(|_| ResponseClosed)?;
         }
 
         Ok(())

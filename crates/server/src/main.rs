@@ -21,7 +21,7 @@ fn main() {
             let (_, receiver) = mesh.join(Role::Consumer).await.unwrap();
 
             while let Some(context) = receiver.recv_from(0).await.unwrap() {
-                context.respond([Frame::Null]).await.unwrap();
+                context.respond([Frame::SimpleString("OK".to_string())]).await.unwrap();
             }
         })).unwrap()
     }).collect::<Vec<_>>();
