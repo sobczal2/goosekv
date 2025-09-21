@@ -1,73 +1,98 @@
-use std::{io::Read, net::SocketAddr, pin};
+use std::{net::SocketAddr, rc::Rc};
 
-use anyhow::bail;
-use futures_lite::{pin, AsyncReadExt, AsyncWriteExt};
-use glommio::{channels::{channel_mesh::{PartialMesh, Role, Senders}, shared_channel::{self, SharedReceiver}}, net::{TcpListener, TcpStream}, prelude::*, ExecutorJoinHandle};
-use goosekv_protocol::{driver::{AsyncDriver, DriverResult}, frame::Frame, parser::Parser};
+use futures_lite::{
+    AsyncWriteExt, StreamExt
+};
+use glommio::{
+    channels::shared_channel::{
+        self,
+        ConnectedSender,
+        SharedReceiver,
+        SharedSender,
+    }, enclose, net::{
+        TcpListener, TcpStream,
+    }, spawn_local, ExecutorJoinHandle
+};
+use goosekv_protocol::{
+    driver::Driver,
+    frame::Frame,
+};
+use tracing::{
+    error,
+    info, warn,
+};
 
 use crate::context::Context;
 
 pub struct Thread {
     addr: SocketAddr,
-    mesh: PartialMesh<Context>,
 }
 
 impl Thread {
-    pub fn new(addr: SocketAddr, mesh: PartialMesh<Context>) -> Self {
-        Self { addr, mesh }
-    }
+    const CHANNEL_SIZE: usize = 256;
 
+    pub fn new(addr: SocketAddr) -> Self {
+        Self { addr }
+    }
 }
 
-impl Thread
-{
-    pub fn start(self) -> ExecutorJoinHandle<Self>
-    {
-        glommio::LocalExecutorBuilder::default()
-            .name("IoThread")
-            .spawn(async move || { self.run().await })
-            .expect("failed to spawn local executor")
+impl Thread {
+    pub fn start(self) -> (ExecutorJoinHandle<Self>, SharedReceiver<Context>) {
+        let (sender, receiver) = shared_channel::new_bounded(Self::CHANNEL_SIZE);
+
+        let handle = glommio::LocalExecutorBuilder::default()
+            .name("IO")
+            .spawn(async move || self.run(sender).await)
+            .expect("failed to spawn local executor");
+
+        (handle, receiver)
     }
 
-    async fn run(self) -> Self {
-        let listener = TcpListener::bind(self.addr).expect("failed to bind listener");
-        let (senders, _) = self.mesh.clone().join(Role::Producer).await.unwrap();
+    async fn run(self, sender: SharedSender<Context>) -> Self {
+        info!("io thread started");
 
-        loop {
-            match listener.accept().await {
-                Ok(mut stream) => {
-                    match handle_stream(&mut stream, &senders).await {
-                        Ok(receiver) => {
-                            let receiver = receiver.connect().await;
-                            while let Some(bytes) = receiver.recv().await {
-                                stream.write_all(&bytes).await.unwrap();
-                            }
-                        },
-                        Err(err) => stream.write_all(&Frame::SimpleError(err.to_string()).bytes()).await.unwrap(),
-                    }
-                }
-                Err(err) => {
-                    println!("listener.accept failed with: {err:?}");
-                    break;
-                },
-            }
+        let listener = TcpListener::bind(self.addr).expect("failed to bind listener");
+        info!("listening on {}", self.addr);
+
+        let sender = Rc::new(sender.connect().await);
+
+        while let Ok(stream) = listener.accept().await {
+            info!("client {} connected", stream.peer_addr().unwrap());
+            spawn_local(enclose!((sender, move stream) async {handle_stream(stream, sender).await })).detach();
         }
+
+        error!("listener.accept failed");
 
         self
     }
 }
 
-async fn handle_stream(stream: &mut TcpStream, senders: &Senders<Context>) -> anyhow::Result<SharedReceiver<Box<[u8]>>> {
-    pin!(stream);
 
-    let driver = AsyncDriver::new();
-    let request = driver.handle(&mut stream).await?;
-
-    let (sender, receiver) = shared_channel::new_bounded(16);
-    let context = Context::new(request, sender);
-    if senders.send_to(context.get_shard(senders.nr_consumers()), context).await.is_err() {
-        bail!("failed to distribute command");
+async fn handle_stream(
+    mut stream: TcpStream,
+    sender: Rc<ConnectedSender<Context>>,
+) {
+    let mut driver = Driver::new();
+    match driver.handle(&mut stream).await {
+        Ok(frames) => {
+            let sender = sender.clone();
+            for frame in frames {
+                let (respond_sender, respond_receiver) = shared_channel::new_bounded(256);
+                let context = Context::new(frame, respond_sender);
+                sender.send(context).await.unwrap();
+                
+                let respond_receiver = respond_receiver.connect().await;
+                while let Some(bytes) = respond_receiver.recv().await {
+                    stream.write_all(&bytes).await.unwrap();
+                }
+            }
+        },
+        Err(error) => {
+            error!("error reading stream: {}", error);
+            stream
+                .write_all(&Frame::SimpleError(error.to_string()).bytes())
+                .await
+                .unwrap();
+        },
     }
-
-    Ok(receiver)
 }

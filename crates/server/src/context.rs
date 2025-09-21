@@ -1,7 +1,11 @@
-use std::str::Bytes;
-
 use glommio::channels::shared_channel::SharedSender;
-use goosekv_protocol::frame::Frame;
+use goosekv_protocol::{
+    command::{
+        self,
+        Command,
+    },
+    frame::Frame,
+};
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -9,23 +13,23 @@ use thiserror::Error;
 pub struct ResponseClosed;
 
 #[derive(Debug)]
-pub struct Context
-{
+pub struct Context {
     request: Frame,
     respond: SharedSender<Box<[u8]>>,
 }
 
-impl Context
-{
+impl Context {
     pub fn new(request: Frame, respond: SharedSender<Box<[u8]>>) -> Self {
         Self { request, respond }
     }
-    pub fn request(&self) -> &Frame {
-        &self.request
+
+    pub fn command(&self) -> command::Result<Command<'_>> {
+        Command::from_frame(&self.request)
     }
 
     pub async fn respond<F>(self, frames: F) -> Result<(), ResponseClosed>
-        where F: IntoIterator<Item = Frame>
+    where
+        F: IntoIterator<Item = Frame>,
     {
         let sender = self.respond.connect().await;
         for frame in frames.into_iter() {
@@ -33,22 +37,5 @@ impl Context
         }
 
         Ok(())
-    }
-
-    pub fn get_shard(&self, nr_shards: usize) -> usize {
-        match &self.request {
-            Frame::SimpleString(value) => {
-                match value.trim() {
-                    "PING" => 1,
-                    "PONG" => 2,
-                    _ => 3,
-                }
-            },
-            Frame::SimpleError(_) => todo!(),
-            Frame::Integer(_) => todo!(),
-            Frame::BulkString(_) => todo!(),
-            Frame::Array(frames) => todo!(),
-            Frame::Null => todo!(),
-        }
     }
 }

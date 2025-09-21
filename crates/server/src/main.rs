@@ -1,33 +1,38 @@
-use std::{net::SocketAddr, num::NonZeroUsize, str::FromStr, thread::available_parallelism};
+use std::{
+    iter::repeat_n,
+    net::SocketAddr,
+    num::NonZeroUsize,
+    str::FromStr,
+    thread::available_parallelism,
+};
 
-use glommio::{channels::{channel_mesh::{MeshBuilder, Role}, sharding::{Handler, HandlerResult, Sharded}}, enclose, spawn_local, LocalExecutorBuilder};
-use goosekv_protocol::frame::Frame;
-use goosekv_server::{context::Context, io};
-
-
-
+use glommio::channels::channel_mesh::MeshBuilder;
+use goosekv_server::{
+    executor,
+    io,
+    worker,
+};
 
 fn main() {
+    tracing_subscriber::fmt().with_thread_ids(true).with_thread_names(true).init();
+
     let thread_count = available_parallelism().unwrap_or(NonZeroUsize::new(1).unwrap());
-    let addr = SocketAddr::from_str("127.0.0.1:6979").unwrap();
+    let addr = SocketAddr::from_str("127.0.0.1:6379").unwrap();
+
+    let io_thread = io::thread::Thread::new(addr);
+    let executor_thread = executor::thread::Thread::new();
 
     let mesh = MeshBuilder::partial(1 + thread_count.get(), 256);
+    let (io_handle, receiver) = io_thread.start();
+    let executor_handle = executor_thread.start(mesh.clone(), receiver);
 
-    let io_thread = io::thread::Thread::new(addr, mesh.clone());
-    let handle = io_thread.start();
+    let worker_handles = repeat_n((), thread_count.get())
+        .map(|_| worker::thread::Thread::new().start(mesh.clone()))
+        .collect::<Vec<_>>();
 
-    let handles = (0..thread_count.get()).map(|_| {
-        LocalExecutorBuilder::default().name("shard-{i}").spawn(enclose!((mesh) move || async move {
-            let (_, receiver) = mesh.join(Role::Consumer).await.unwrap();
-
-            while let Some(context) = receiver.recv_from(0).await.unwrap() {
-                context.respond([Frame::SimpleString("OK".to_string())]).await.unwrap();
-            }
-        })).unwrap()
-    }).collect::<Vec<_>>();
-
-    handle.join().unwrap();
-    for handle in handles {
-        handle.join().unwrap();
+    for worker_handle in worker_handles {
+        worker_handle.join().unwrap();
     }
+    executor_handle.join().unwrap();
+    io_handle.join().unwrap();
 }

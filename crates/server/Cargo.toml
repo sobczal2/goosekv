@@ -13,4 +13,6 @@ glommio.workspace = true
 thiserror.workspace = true
 futures-lite.workspace = true
 anyhow.workspace = true
+tracing = { version = "0.1.41" }
+tracing-subscriber = { version = "0.3.20" }
 

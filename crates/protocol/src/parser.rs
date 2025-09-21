@@ -4,7 +4,16 @@ use bytes::{
 };
 use thiserror::Error;
 
-use crate::frame::{Frame, ARRAY_FIRST_CHAR, BULK_STRING_FIRST_CHAR, INTEGER_FIRST_CHAR, NULL_FIRST_CHAR, SIMPLE_ERROR_FIRST_CHAR, SIMPLE_STRING_FIRST_CHAR, TERMINATOR_STR};
+use crate::frame::{
+    ARRAY_FIRST_CHAR,
+    BULK_STRING_FIRST_CHAR,
+    Frame,
+    INTEGER_FIRST_CHAR,
+    NULL_FIRST_CHAR,
+    SIMPLE_ERROR_FIRST_CHAR,
+    SIMPLE_STRING_FIRST_CHAR,
+    TERMINATOR_STR,
+};
 
 #[derive(Debug, Error)]
 pub enum ParsingError {
@@ -28,7 +37,15 @@ pub struct Parser {
 
 impl Parser {
     pub fn new() -> Self {
-        Self { buf: BytesMut::zeroed(1024) }
+        Self { buf: BytesMut::with_capacity(4096) }
+    }
+
+    pub fn with_buf_size(size: usize) -> Self {
+        Self { buf: BytesMut::with_capacity(size) }
+    }
+
+    pub fn reset(&mut self) {
+        self.buf.clear();
     }
 
     pub fn parse(&mut self) -> ParsingResult<Option<Frame>> {
@@ -40,7 +57,7 @@ impl Parser {
             SIMPLE_STRING_FIRST_CHAR => self.parse_simple_string(),
             SIMPLE_ERROR_FIRST_CHAR => self.parse_simple_error(),
             INTEGER_FIRST_CHAR => self.parse_integer(),
-            BULK_STRING_FIRST_CHAR=> self.parse_bulk_string(),
+            BULK_STRING_FIRST_CHAR => self.parse_bulk_string(),
             ARRAY_FIRST_CHAR => self.parse_array(),
             NULL_FIRST_CHAR => self.parse_null(),
             _ => Err(ParsingError::InvalidFirstByte),
@@ -100,8 +117,8 @@ impl Parser {
             let length = str::from_utf8(length).map_err(|_| ParsingError::InvalidUtf8)?;
             let length = length.parse::<usize>().map_err(|_| ParsingError::InvalidInteger)?;
 
-            let value =
-                &self.buf[end_index + TERMINATOR_STR.len()..end_index + TERMINATOR_STR.len() + length];
+            let value = &self.buf
+                [end_index + TERMINATOR_STR.len()..end_index + TERMINATOR_STR.len() + length];
             let value = str::from_utf8(value).map_err(|_| ParsingError::InvalidUtf8)?;
 
             let frame = Frame::BulkString(value.to_string());
