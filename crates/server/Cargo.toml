@@ -1,0 +1,15 @@
+[package]
+name = "goosekv-server"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "goosekv-server"
+path = "src/main.rs"
+
+[dependencies]
+goosekv-protocol.workspace = true
+glommio.workspace = true
+thiserror.workspace = true
+futures-lite.workspace = true
+
