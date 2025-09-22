@@ -4,7 +4,7 @@ use bytes::Bytes;
 use futures::{Sink, SinkExt, StreamExt};
 use glommio::{channels::channel_mesh::Senders, net::{TcpListener, TcpStream}, spawn_local};
 use goosekv_protocol::{command::Command as RespCommand, frame::Frame, stream::FrameStream};
-use tracing::error;
+use tracing::{error, info};
 
 use crate::{acceptor::handler::{get::GetHandler, ping::PingHandler, set::SetHandler, Handler}, processor::command::Command};
 
@@ -39,6 +39,7 @@ async fn handle_stream(
     while let Some(result) = stream.next().await {
         match result {
             Ok(request) => {
+                info!("received request: {request}");
                 let command = match RespCommand::from_frame(&request) {
                     Ok(command) => command,
                     Err(error) => {
@@ -77,6 +78,6 @@ where S: Sink<Frame, Error = io::Error> + Unpin
     let _ = sink
         .send(Frame::SimpleError(Bytes::from(error.to_string().into_bytes())))
         .await
-   .inspect_err(|error| error!("failed to write to sink: {error}")); 
+   .inspect_err(|error| error!("failed to write to sink: {error}")).unwrap(); 
 }
 

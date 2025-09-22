@@ -31,10 +31,10 @@ impl Thread {
         let (senders, receivers) = self.mesh.clone().join().await.expect("failed to join mesh");
 
         let acceptor_handle = run_acceptor(senders, self.addr);
-        let processor_handle = run_processor(receivers);
+        // let processor_handle = run_processor(receivers);
 
         acceptor_handle.await.unwrap();
-        processor_handle.await.unwrap();
+        // processor_handle.await.unwrap();
 
         self
     }
