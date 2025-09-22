@@ -1,4 +1,4 @@
 pub mod command;
-pub mod driver;
+pub mod stream;
 pub mod frame;
 pub mod parser;

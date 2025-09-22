@@ -1,8 +1,7 @@
 use std::{net::SocketAddr, rc::Rc};
 
-use futures_lite::{
-    AsyncWriteExt,
-};
+use bytes::Bytes;
+use futures::{SinkExt, StreamExt};
 use glommio::{
     channels::shared_channel::{
         self,
@@ -14,8 +13,7 @@ use glommio::{
     }, spawn_local, ExecutorJoinHandle
 };
 use goosekv_protocol::{
-    driver::Driver,
-    frame::Frame,
+    frame::Frame, stream::FrameStream,
 };
 use tracing::{
     error,
@@ -72,27 +70,25 @@ async fn handle_stream(
     mut stream: TcpStream,
     sender: Rc<ConnectedSender<Context>>,
 ) {
-    let mut driver = Driver::new();
-    match driver.handle(&mut stream).await {
-        Ok(frames) => {
-            let sender = sender.clone();
-            for frame in frames {
-                let (respond_sender, respond_receiver) = shared_channel::new_bounded(256);
-                let context = Context::new(frame, respond_sender);
+    let mut stream = FrameStream::new(&mut stream);
+    while let Some(result) = stream.next().await {
+        match result {
+            Ok(frame) => {
+                let (context, respond) = Context::new(frame);
                 sender.send(context).await.unwrap();
                 
-                let respond_receiver = respond_receiver.connect().await;
-                while let Some(bytes) = respond_receiver.recv().await {
-                    stream.write_all(&bytes).await.unwrap();
+                let respond = respond.connect().await;
+                while let Some(frame) = respond.recv().await {
+                    stream.send(frame).await.unwrap();
                 }
-            }
-        },
-        Err(error) => {
-            error!("error reading stream: {}", error);
-            stream
-                .write_all(&Frame::SimpleError(error.to_string()).bytes())
-                .await
-                .unwrap();
-        },
+            },
+            Err(error) => {
+                error!("error reading stream: {}", error);
+                stream
+                    .send(Frame::SimpleError(Bytes::from(error.to_string().into_bytes())))
+                    .await
+                    .unwrap();
+            },
+        }
     }
 }

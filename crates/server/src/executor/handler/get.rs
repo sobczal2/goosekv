@@ -4,6 +4,7 @@ use std::hash::{
     Hasher,
 };
 
+use bytes::Bytes;
 use glommio::channels::{
     channel_mesh::Senders,
     shared_channel,
@@ -21,6 +22,8 @@ use crate::{
     executor::handler::Handler,
     worker::command::WorkerCommand,
 };
+
+const INTERNAL_ERROR_MESSAGE: &[u8] = b"internal error"; // TODO: global?
 
 pub struct GetHandler;
 
@@ -40,15 +43,13 @@ impl Handler<GetCommand> for GetHandler {
 
         if let Some(mut response) = receiver.connect().await.recv().await {
             if response.value.is_some() {
-                Frame::BulkString(
-                    String::from_utf8(response.value.take().unwrap().0.to_vec()).unwrap(),
-                )
+                Frame::BulkString(response.value.take().unwrap().0.into())
             } else {
                 Frame::Null
             }
         } else {
             error!("worker {} died", target);
-            Frame::SimpleError("internal error".to_string())
+            Frame::SimpleError(Bytes::from_static(INTERNAL_ERROR_MESSAGE))
         }
     }
 }

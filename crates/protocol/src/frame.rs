@@ -1,53 +1,33 @@
 use std::fmt::{
     self,
     Display,
-    Formatter,
+    Formatter, Write,
 };
 
+use bytes::{BufMut, Bytes, BytesMut};
 use thiserror::Error;
 
-pub const TERMINATOR_STR: &str = "\r\n";
-pub const SIMPLE_STRING_FIRST_CHAR: char = '+';
-pub const SIMPLE_ERROR_FIRST_CHAR: char = '-';
-pub const INTEGER_FIRST_CHAR: char = ':';
-pub const BULK_STRING_FIRST_CHAR: char = '$';
-pub const ARRAY_FIRST_CHAR: char = '*';
-pub const NULL_FIRST_CHAR: char = '_';
+pub const TERMINATOR: &[u8; 2] = b"\r\n";
+pub const SIMPLE_STRING_FIRST_BYTE: u8 = b'+';
+pub const SIMPLE_ERROR_FIRST_BYTE: u8 = b'-';
+pub const INTEGER_FIRST_BYTE: u8 = b':';
+pub const BULK_STRING_FIRST_BYTE: u8 = b'$';
+pub const ARRAY_FIRST_BYTE: u8 = b'*';
+pub const NULL_FIRST_BYTE: u8 = b'_';
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Frame {
-    SimpleString(String),
-    SimpleError(String),
+    SimpleString(Bytes),
+    SimpleError(Bytes),
     Integer(i64),
-    BulkString(String),
+    BulkString(Bytes),
     Array(Box<[Frame]>),
     Null,
 }
 
 impl Display for Frame {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        match self {
-            Frame::SimpleString(value) => {
-                write!(f, "{SIMPLE_STRING_FIRST_CHAR}{value}{TERMINATOR_STR}")
-            }
-            Frame::SimpleError(value) => {
-                write!(f, "{SIMPLE_ERROR_FIRST_CHAR}{value}{TERMINATOR_STR}")
-            }
-            Frame::Integer(value) => write!(f, "{INTEGER_FIRST_CHAR}{value}{TERMINATOR_STR}"),
-            Frame::BulkString(value) => {
-                let len = value.len();
-                write!(f, "{BULK_STRING_FIRST_CHAR}{len}{TERMINATOR_STR}{value}{TERMINATOR_STR}")
-            }
-            Frame::Array(frames) => {
-                let len = frames.len();
-                write!(f, "{ARRAY_FIRST_CHAR}{len}{TERMINATOR_STR}")?;
-                for frame in frames.iter() {
-                    frame.fmt(f)?
-                }
-                Ok(())
-            }
-            Frame::Null => write!(f, "{NULL_FIRST_CHAR}{TERMINATOR_STR}"),
-        }
+        f.write_str(&String::from_utf8_lossy(self.bytes().as_ref()))
     }
 }
 
@@ -56,20 +36,68 @@ impl Display for Frame {
 pub struct InvalidFrameType;
 
 impl Frame {
-    pub fn bytes(self) -> Box<[u8]> {
-        self.to_string().into_bytes().into_boxed_slice()
+    pub fn bytes(&self) -> Bytes {
+        let mut bytes = BytesMut::new();
+        self.read_bytes(&mut bytes);
+        bytes.freeze()
     }
 
-    pub fn as_simple_string(&self) -> Result<&str, InvalidFrameType> {
+    fn read_bytes(&self, bytes: &mut BytesMut) {
         match self {
-            Frame::SimpleString(value) => Ok(value),
+            Frame::SimpleString(value) => {
+                let first_byte = SIMPLE_STRING_FIRST_BYTE;
+                bytes.reserve(size_of_val(&first_byte) + value.len() + TERMINATOR.len());
+                bytes.put_u8(first_byte);
+                bytes.put(value.as_ref());
+                bytes.put(TERMINATOR.as_ref());
+            },
+            Frame::SimpleError(value) => {
+                let first_byte = SIMPLE_ERROR_FIRST_BYTE;
+                bytes.reserve(size_of_val(&first_byte) + value.len() + TERMINATOR.len());
+                bytes.put_u8(first_byte);
+                bytes.put(value.as_ref());
+                bytes.put(TERMINATOR.as_ref());
+            },
+            Frame::Integer(value) => {
+                let first_byte = INTEGER_FIRST_BYTE;
+                bytes.reserve(size_of_val(&first_byte) + size_of::<i64>() + TERMINATOR.len());
+                bytes.put_u8(first_byte);
+                bytes.write_fmt(format_args!("{value}")).unwrap();
+                bytes.put(TERMINATOR.as_ref());
+            },
+            Frame::BulkString(value) => {
+                let first_byte = BULK_STRING_FIRST_BYTE;
+                // TODO: reserve?
+                bytes.put_u8(first_byte);
+                bytes.write_fmt(format_args!("{len}", len = value.len())).unwrap();
+                bytes.put(TERMINATOR.as_ref());
+                bytes.put(value.as_ref());
+                bytes.put(TERMINATOR.as_ref());
+            },
+            Frame::Array(frames) => {
+                for frame in frames {
+                    frame.read_bytes(bytes);
+                }
+            },
+            Frame::Null => {
+                let first_byte = NULL_FIRST_BYTE;
+                bytes.reserve(size_of_val(&first_byte) + TERMINATOR.len());
+                bytes.put_u8(first_byte);
+                bytes.put(TERMINATOR.as_ref());
+            },
+        }
+    }
+
+    pub fn as_simple_string(&self) -> Result<Bytes, InvalidFrameType> {
+        match self {
+            Frame::SimpleString(value) => Ok(value.clone()),
             _ => Err(InvalidFrameType),
         }
     }
 
-    pub fn as_simple_error(&self) -> Result<&str, InvalidFrameType> {
+    pub fn as_simple_error(&self) -> Result<Bytes, InvalidFrameType> {
         match self {
-            Frame::SimpleError(value) => Ok(value),
+            Frame::SimpleError(value) => Ok(value.clone()),
             _ => Err(InvalidFrameType),
         }
     }
@@ -81,9 +109,9 @@ impl Frame {
         }
     }
 
-    pub fn as_bulk_string(&self) -> Result<&str, InvalidFrameType> {
+    pub fn as_bulk_string(&self) -> Result<Bytes, InvalidFrameType> {
         match self {
-            Frame::BulkString(value) => Ok(value),
+            Frame::BulkString(value) => Ok(value.clone()),
             _ => Err(InvalidFrameType),
         }
     }

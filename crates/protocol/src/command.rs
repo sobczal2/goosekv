@@ -1,3 +1,4 @@
+use bytes::Bytes;
 use thiserror::Error;
 
 use crate::frame::Frame;
@@ -25,16 +26,16 @@ pub struct Key(pub Box<[u8]>);
 pub struct Value(pub Box<[u8]>);
 
 #[derive(Debug)]
-pub enum Command<'a> {
-    Ping(PingCommand<'a>),
+pub enum Command {
+    Ping(PingCommand),
     Get(GetCommand),
     Set(SetCommand),
     ConfigGet(ConfigGetCommand),
 }
 
 #[derive(Debug)]
-pub struct PingCommand<'a> {
-    pub message: Option<&'a str>,
+pub struct PingCommand {
+    pub message: Option<Bytes>,
 }
 
 #[derive(Debug)]
@@ -50,25 +51,25 @@ pub struct SetCommand {
 
 #[derive(Debug)]
 pub struct ConfigGetCommand {
-    pub parameter: String,
+    pub parameter: Bytes,
 }
 
-impl<'a> Command<'a> {
-    pub fn from_frame(frame: &'a Frame) -> Result<Self> {
+impl Command {
+    pub fn from_frame(frame: &Frame) -> Result<Self> {
         let frames = frame.as_array().map_err(|_| Error::InvalidFrame)?;
 
         if frames.is_empty() {
             return Err(Error::InvalidFrame);
         }
 
-        match frames[0].as_bulk_string().map_err(|_| Error::InvalidFrame)? {
-                "PING" => Self::parse_ping(&frames[1..]),
-                "GET" => Self::parse_get(&frames[1..]),
-                "SET" => Self::parse_set(&frames[1..]),
-                "CONFIG" => {
+        match frames[0].as_bulk_string().map_err(|_| Error::InvalidFrame)?.as_ref() {
+                b"PING" => Self::parse_ping(&frames[1..]),
+                b"GET" => Self::parse_get(&frames[1..]),
+                b"SET" => Self::parse_set(&frames[1..]),
+                b"CONFIG" => {
                     if frames.len() >= 2 {
-                        match frames[1].as_bulk_string().map_err(|_| Error::InvalidFrame)? {
-                            "GET" => Self::parse_config_get(&frames[2..]),
+                        match frames[1].as_bulk_string().map_err(|_| Error::InvalidFrame)?.as_ref() {
+                            b"GET" => Self::parse_config_get(&frames[2..]),
                             _ => Err(Error::InvalidCommand),
                         }
                     }
@@ -80,7 +81,7 @@ impl<'a> Command<'a> {
         }
     }
 
-    fn parse_ping(frames: &'a [Frame]) -> Result<Self> {
+    fn parse_ping(frames: &[Frame]) -> Result<Self> {
         if frames.is_empty() {
             return Ok(Command::Ping(PingCommand { message: None }));
         }
@@ -89,15 +90,15 @@ impl<'a> Command<'a> {
             return Err(Error::TooManyArgs);
         }
 
-        match &frames[0] {
-            Frame::BulkString(value) => {
-                Ok(Command::Ping(PingCommand { message: Some(value.as_str()) }))
+        match frames[0] {
+            Frame::BulkString(ref value) => {
+                Ok(Command::Ping(PingCommand { message: Some(value.clone()) }))
             }
             _ => Err(Error::InvalidArg("invalid message frame".to_string())),
         }
     }
 
-    fn parse_get(frames: &'a [Frame]) -> Result<Self> {
+    fn parse_get(frames: &[Frame]) -> Result<Self> {
         if frames.is_empty() {
             return Err(Error::NotEnoughArgs);
         }
@@ -109,14 +110,13 @@ impl<'a> Command<'a> {
         let key = Key(frames[0]
             .as_bulk_string()
             .map_err(|_| Error::InvalidArg("invalid key".to_string()))?
-            .as_bytes()
             .to_vec()
             .into_boxed_slice());
 
         Ok(Command::Get(GetCommand { key }))
     }
 
-    fn parse_set(frames: &'a [Frame]) -> Result<Self> {
+    fn parse_set(frames: &[Frame]) -> Result<Self> {
         if frames.len() < 2 {
             return Err(Error::NotEnoughArgs);
         }
@@ -128,14 +128,12 @@ impl<'a> Command<'a> {
         let key = Key(frames[0]
             .as_bulk_string()
             .map_err(|_| Error::InvalidArg("invalid key".to_string()))?
-            .as_bytes()
             .to_vec()
             .into_boxed_slice());
         let value = Value(
             frames[1]
                 .as_bulk_string()
                 .map_err(|_| Error::InvalidArg("invalid value".to_string()))?
-                .as_bytes()
                 .to_vec()
                 .into_boxed_slice(),
         );
@@ -143,7 +141,7 @@ impl<'a> Command<'a> {
         Ok(Command::Set(SetCommand { key, value }))
     }
 
-    fn parse_config_get(frames: &'a [Frame]) -> Result<Self> {
+    fn parse_config_get(frames: &[Frame]) -> Result<Self> {
         if frames.is_empty() {
             return Err(Error::NotEnoughArgs);
         }
@@ -156,10 +154,10 @@ impl<'a> Command<'a> {
             .as_bulk_string()
             .map_err(|_| Error::InvalidArg("invalid key".to_string()))?;
 
-        const ALLOWED_PARAMETER_VALUES: [&str; 1] = ["save"];
+        const ALLOWED_PARAMETER_VALUES: [&[u8]; 1] = [b"save"];
 
-        if ALLOWED_PARAMETER_VALUES.contains(&parameter) {
-            Ok(Command::ConfigGet(ConfigGetCommand { parameter: parameter.to_string() }))
+        if ALLOWED_PARAMETER_VALUES.contains(&parameter.as_ref()) {
+            Ok(Command::ConfigGet(ConfigGetCommand { parameter }))
         }
         else {
             Err(Error::InvalidArg("not supported parameter".to_string()))

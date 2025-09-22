@@ -1,3 +1,4 @@
+use bytes::Bytes;
 use glommio::channels::channel_mesh::Senders;
 use goosekv_protocol::{
     command::{
@@ -14,15 +15,15 @@ use crate::{
 
 pub struct PingHandler;
 
-const DEFAULT_MESSAGE: &str = "PONG";
+const DEFAULT_MESSAGE: &[u8] = b"PONG";
 
-impl<'a> Handler<PingCommand<'a>> for PingHandler {
-    async fn handle(&self, command: PingCommand<'a>, _senders: &Senders<WorkerCommand>) -> Frame {
+impl Handler<PingCommand> for PingHandler {
+    async fn handle(&self, command: PingCommand, _senders: &Senders<WorkerCommand>) -> Frame {
         info!("handling PING");
         if let Some(message) = command.message {
-            return Frame::BulkString(message.to_string());
+            return Frame::BulkString(message);
         }
 
-        Frame::SimpleString(DEFAULT_MESSAGE.to_string())
+        Frame::SimpleString(Bytes::from_static(DEFAULT_MESSAGE))
     }
 }

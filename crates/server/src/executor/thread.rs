@@ -1,5 +1,6 @@
 use std::rc::Rc;
 
+use bytes::Bytes;
 use glommio::{
     channels::{
         channel_mesh::{
@@ -77,7 +78,7 @@ impl Thread {
                     }
                     Err(error) => {
                         error!("execution failed with error: {}", error);
-                        if context.respond([Frame::SimpleError(error.to_string())]).await.is_err() {
+                        if context.respond([Frame::SimpleError(Bytes::from(error.to_string().into_bytes()))]).await.is_err() {
                             error!("failed to respond");
                         }
                     }
@@ -100,7 +101,7 @@ async fn handle_context(
         Command::Get(get_command) => GetHandler.handle(get_command, senders).await,
         Command::Set(set_command) => SetHandler.handle(set_command, senders).await,
         // TODO: clean
-        Command::ConfigGet(_) => Frame::Array(vec![Frame::BulkString("save".to_string()), Frame::BulkString("".to_string())].into_boxed_slice()),
+        Command::ConfigGet(_) => Frame::Array(vec![Frame::BulkString(Bytes::from("save".to_string().into_bytes())), Frame::BulkString(Bytes::new())].into_boxed_slice()),
     };
 
     Ok(frame)

@@ -4,6 +4,7 @@ use std::hash::{
     Hasher,
 };
 
+use bytes::Bytes;
 use glommio::channels::{
     channel_mesh::Senders,
     shared_channel,
@@ -22,6 +23,9 @@ use crate::{
     worker::command::WorkerCommand,
 };
 
+const OK_MESSAGE: &[u8] = b"OK";
+const INTERNAL_ERROR_MESSAGE: &[u8] = b"internal error"; // TODO: global?
+
 pub struct SetHandler;
 
 impl Handler<goosekv_protocol::command::SetCommand> for SetHandler {
@@ -39,10 +43,10 @@ impl Handler<goosekv_protocol::command::SetCommand> for SetHandler {
         senders.send_to(target, worker_command).await.unwrap();
 
         if (receiver.connect().await.recv().await).is_some() {
-            Frame::SimpleString("OK".to_string())
+            Frame::SimpleString(Bytes::from_static(OK_MESSAGE))
         } else {
             error!("worker {} died", target);
-            Frame::SimpleError("internal error".to_string())
+            Frame::SimpleError(Bytes::from_static(INTERNAL_ERROR_MESSAGE))
         }
     }
 }
