@@ -60,13 +60,17 @@ impl Parser {
 }
 
 fn parse_buf(buf: &[u8]) -> ParseResult<Option<ParsedFrame>> {
+    if buf.is_empty() {
+        return Ok(None);
+    }
+
     match buf[0] {
-        SIMPLE_STRING_FIRST_BYTE => parse_simple_string(&buf[..]),
-        SIMPLE_ERROR_FIRST_BYTE => parse_simple_error(&buf[..]),
-        INTEGER_FIRST_BYTE => parse_integer(&buf[..]),
-        BULK_STRING_FIRST_BYTE => parse_bulk_string(&buf[..]),
-        ARRAY_FIRST_BYTE => parse_array(&buf[..]),
-        NULL_FIRST_BYTE => parse_null(&buf[..]),
+        SIMPLE_STRING_FIRST_BYTE => parse_simple_string(buf),
+        SIMPLE_ERROR_FIRST_BYTE => parse_simple_error(buf),
+        INTEGER_FIRST_BYTE => parse_integer(buf),
+        BULK_STRING_FIRST_BYTE => parse_bulk_string(buf),
+        ARRAY_FIRST_BYTE => parse_array(buf),
+        NULL_FIRST_BYTE => parse_null(buf),
         _ => Err(ParseError::InvalidFirstByte),
     }
 }

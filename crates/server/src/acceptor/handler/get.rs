@@ -18,17 +18,14 @@ use tracing::{
     info,
 };
 
-use crate::{
-    executor::handler::Handler,
-    worker::command::WorkerCommand,
-};
+use crate::{acceptor::handler::Handler, processor::command::Command};
 
 const INTERNAL_ERROR_MESSAGE: &[u8] = b"internal error"; // TODO: global?
 
 pub struct GetHandler;
 
 impl Handler<GetCommand> for GetHandler {
-    async fn handle(&self, command: GetCommand, senders: &Senders<WorkerCommand>) -> Frame {
+    async fn handle(&self, command: GetCommand, senders: &Senders<Command>) -> Frame {
         let mut hasher = DefaultHasher::default();
         command.key.hash(&mut hasher);
         let hash = hasher.finish();
@@ -36,7 +33,7 @@ impl Handler<GetCommand> for GetHandler {
         let target = (hash % senders.nr_consumers() as u64) as usize;
 
         let (sender, receiver) = shared_channel::new_bounded(1);
-        let worker_command = WorkerCommand::Get(command.key, sender);
+        let worker_command = Command::Get(command.key, sender);
 
         info!("sending command {:?} to worker {}", worker_command, target);
         senders.send_to(target, worker_command).await.unwrap();

@@ -18,10 +18,8 @@ use tracing::{
     info,
 };
 
-use crate::{
-    executor::handler::Handler,
-    worker::command::WorkerCommand,
-};
+use crate::{acceptor::handler::Handler, processor::command::Command};
+
 
 const OK_MESSAGE: &[u8] = b"OK";
 const INTERNAL_ERROR_MESSAGE: &[u8] = b"internal error"; // TODO: global?
@@ -29,7 +27,7 @@ const INTERNAL_ERROR_MESSAGE: &[u8] = b"internal error"; // TODO: global?
 pub struct SetHandler;
 
 impl Handler<goosekv_protocol::command::SetCommand> for SetHandler {
-    async fn handle(&self, command: SetCommand, senders: &Senders<WorkerCommand>) -> Frame {
+    async fn handle(&self, command: SetCommand, senders: &Senders<Command>) -> Frame {
         let mut hasher = DefaultHasher::default();
         command.key.hash(&mut hasher);
         let hash = hasher.finish();
@@ -37,7 +35,7 @@ impl Handler<goosekv_protocol::command::SetCommand> for SetHandler {
         let target = (hash % senders.nr_consumers() as u64) as usize;
 
         let (sender, receiver) = shared_channel::new_bounded(1);
-        let worker_command = WorkerCommand::Set(command.key, command.value, sender);
+        let worker_command = Command::Set(command.key, command.value, sender);
 
         info!("sending command {:?} to worker {}", worker_command, target);
         senders.send_to(target, worker_command).await.unwrap();

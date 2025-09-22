@@ -8,17 +8,14 @@ use goosekv_protocol::{
 };
 use tracing::info;
 
-use crate::{
-    executor::handler::Handler,
-    worker::command::WorkerCommand,
-};
+use crate::{acceptor::handler::Handler, processor::command::Command};
 
 pub struct PingHandler;
 
 const DEFAULT_MESSAGE: &[u8] = b"PONG";
 
 impl Handler<PingCommand> for PingHandler {
-    async fn handle(&self, command: PingCommand, _senders: &Senders<WorkerCommand>) -> Frame {
+    async fn handle(&self, command: PingCommand, _senders: &Senders<Command>) -> Frame {
         info!("handling PING");
         if let Some(message) = command.message {
             return Frame::BulkString(message);
