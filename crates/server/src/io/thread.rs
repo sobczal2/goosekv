@@ -99,6 +99,7 @@ async fn handle_stream(mut stream: TcpStream, sender: Rc<ConnectedSender<Context
                     .send(Frame::SimpleError(Bytes::from(error.to_string().into_bytes())))
                     .await
                     .unwrap();
+                break;
             }
         }
     }
