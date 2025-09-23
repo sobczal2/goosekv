@@ -1,9 +1,7 @@
 use bytes::Bytes;
 use glommio::channels::channel_mesh::Senders;
 use goosekv_protocol::{
-    command::{
-        PingCommand,
-    },
+    command::PingCommand,
     frame::Frame,
 };
 use tracing::info;

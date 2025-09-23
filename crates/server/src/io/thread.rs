@@ -1,19 +1,31 @@
-use std::{net::SocketAddr, rc::Rc};
+use std::{
+    net::SocketAddr,
+    rc::Rc,
+};
 
 use bytes::Bytes;
-use futures::{SinkExt, StreamExt};
+use futures::{
+    SinkExt,
+    StreamExt,
+};
 use glommio::{
+    ExecutorJoinHandle,
     channels::shared_channel::{
         self,
         ConnectedSender,
         SharedReceiver,
         SharedSender,
-    }, enclose, net::{
-        TcpListener, TcpStream,
-    }, spawn_local, ExecutorJoinHandle
+    },
+    enclose,
+    net::{
+        TcpListener,
+        TcpStream,
+    },
+    spawn_local,
 };
 use goosekv_protocol::{
-    frame::Frame, stream::FrameStream,
+    frame::Frame,
+    stream::FrameStream,
 };
 use tracing::{
     error,
@@ -56,7 +68,10 @@ impl Thread {
 
         while let Ok(stream) = listener.accept().await {
             info!("client {} connected", stream.peer_addr().unwrap());
-            spawn_local(enclose!((sender, move stream) async {handle_stream(stream, sender).await })).detach();
+            spawn_local(
+                enclose!((sender, move stream) async {handle_stream(stream, sender).await }),
+            )
+            .detach();
         }
 
         error!("listener.accept failed");
@@ -65,30 +80,26 @@ impl Thread {
     }
 }
 
-
-async fn handle_stream(
-    mut stream: TcpStream,
-    sender: Rc<ConnectedSender<Context>>,
-) {
+async fn handle_stream(mut stream: TcpStream, sender: Rc<ConnectedSender<Context>>) {
     let mut stream = FrameStream::new(&mut stream);
     while let Some(result) = stream.next().await {
         match result {
             Ok(frame) => {
                 let (context, respond) = Context::new(frame);
                 sender.send(context).await.unwrap();
-                
+
                 let respond = respond.connect().await;
                 while let Some(frame) = respond.recv().await {
                     stream.send(frame).await.unwrap();
                 }
-            },
+            }
             Err(error) => {
                 error!("error reading stream: {}", error);
                 stream
                     .send(Frame::SimpleError(Bytes::from(error.to_string().into_bytes())))
                     .await
                     .unwrap();
-            },
+            }
         }
     }
 }

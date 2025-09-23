@@ -1,4 +1,8 @@
-use glommio::channels::shared_channel::{self, SharedReceiver, SharedSender};
+use glommio::channels::shared_channel::{
+    self,
+    SharedReceiver,
+    SharedSender,
+};
 use goosekv_protocol::{
     command::{
         self,

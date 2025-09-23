@@ -63,21 +63,20 @@ impl Command {
         }
 
         match frames[0].as_bulk_string().map_err(|_| Error::InvalidFrame)?.as_ref() {
-                b"PING" => Self::parse_ping(&frames[1..]),
-                b"GET" => Self::parse_get(&frames[1..]),
-                b"SET" => Self::parse_set(&frames[1..]),
-                b"CONFIG" => {
-                    if frames.len() >= 2 {
-                        match frames[1].as_bulk_string().map_err(|_| Error::InvalidFrame)?.as_ref() {
-                            b"GET" => Self::parse_config_get(&frames[2..]),
-                            _ => Err(Error::InvalidCommand),
-                        }
+            b"PING" => Self::parse_ping(&frames[1..]),
+            b"GET" => Self::parse_get(&frames[1..]),
+            b"SET" => Self::parse_set(&frames[1..]),
+            b"CONFIG" => {
+                if frames.len() >= 2 {
+                    match frames[1].as_bulk_string().map_err(|_| Error::InvalidFrame)?.as_ref() {
+                        b"GET" => Self::parse_config_get(&frames[2..]),
+                        _ => Err(Error::InvalidCommand),
                     }
-                    else {
-                        Err(Error::InvalidCommand)
-                    }
+                } else {
+                    Err(Error::InvalidCommand)
                 }
-                _ => Err(Error::InvalidCommand),
+            }
+            _ => Err(Error::InvalidCommand),
         }
     }
 
@@ -150,16 +149,14 @@ impl Command {
             return Err(Error::TooManyArgs);
         }
 
-        let parameter = frames[0]
-            .as_bulk_string()
-            .map_err(|_| Error::InvalidArg("invalid key".to_string()))?;
+        let parameter =
+            frames[0].as_bulk_string().map_err(|_| Error::InvalidArg("invalid key".to_string()))?;
 
         const ALLOWED_PARAMETER_VALUES: [&[u8]; 1] = [b"save"];
 
         if ALLOWED_PARAMETER_VALUES.contains(&parameter.as_ref()) {
             Ok(Command::ConfigGet(ConfigGetCommand { parameter }))
-        }
-        else {
+        } else {
             Err(Error::InvalidArg("not supported parameter".to_string()))
         }
     }

@@ -1,10 +1,19 @@
 use bytes::{
-    Buf, Bytes, BytesMut
+    Buf,
+    Bytes,
+    BytesMut,
 };
 use thiserror::Error;
 
 use crate::frame::{
-    Frame, ARRAY_FIRST_BYTE, BULK_STRING_FIRST_BYTE, INTEGER_FIRST_BYTE, NULL_FIRST_BYTE, SIMPLE_ERROR_FIRST_BYTE, SIMPLE_STRING_FIRST_BYTE, TERMINATOR
+    ARRAY_FIRST_BYTE,
+    BULK_STRING_FIRST_BYTE,
+    Frame,
+    INTEGER_FIRST_BYTE,
+    NULL_FIRST_BYTE,
+    SIMPLE_ERROR_FIRST_BYTE,
+    SIMPLE_STRING_FIRST_BYTE,
+    TERMINATOR,
 };
 
 #[derive(Debug, Error)]
@@ -43,10 +52,8 @@ impl Parser {
             Some(parsed_frame) => {
                 self.buf.advance(parsed_frame.advance_by);
                 Ok(Some(parsed_frame.frame))
-            },
-            None => {
-                Ok(None)
-            },
+            }
+            None => Ok(None),
         }
     }
 
@@ -60,13 +67,17 @@ impl Parser {
 }
 
 fn parse_buf(buf: &[u8]) -> ParseResult<Option<ParsedFrame>> {
+    if buf.is_empty() {
+        return Ok(None);
+    }
+
     match buf[0] {
-        SIMPLE_STRING_FIRST_BYTE => parse_simple_string(&buf[..]),
-        SIMPLE_ERROR_FIRST_BYTE => parse_simple_error(&buf[..]),
-        INTEGER_FIRST_BYTE => parse_integer(&buf[..]),
-        BULK_STRING_FIRST_BYTE => parse_bulk_string(&buf[..]),
-        ARRAY_FIRST_BYTE => parse_array(&buf[..]),
-        NULL_FIRST_BYTE => parse_null(&buf[..]),
+        SIMPLE_STRING_FIRST_BYTE => parse_simple_string(buf),
+        SIMPLE_ERROR_FIRST_BYTE => parse_simple_error(buf),
+        INTEGER_FIRST_BYTE => parse_integer(buf),
+        BULK_STRING_FIRST_BYTE => parse_bulk_string(buf),
+        ARRAY_FIRST_BYTE => parse_array(buf),
+        NULL_FIRST_BYTE => parse_null(buf),
         _ => Err(ParseError::InvalidFirstByte),
     }
 }
@@ -76,10 +87,7 @@ fn parse_simple_string(buf: &[u8]) -> ParseResult<Option<ParsedFrame>> {
         let value = &buf[1..end_index];
         let frame = Frame::SimpleString(Bytes::copy_from_slice(value));
 
-        let parsed_frame = ParsedFrame {
-            frame,
-            advance_by: end_index + TERMINATOR.len(),
-        };
+        let parsed_frame = ParsedFrame { frame, advance_by: end_index + TERMINATOR.len() };
 
         Ok(Some(parsed_frame))
     } else {
@@ -92,10 +100,7 @@ fn parse_simple_error(buf: &[u8]) -> ParseResult<Option<ParsedFrame>> {
         let value = &buf[1..end_index];
         let frame = Frame::SimpleError(Bytes::copy_from_slice(value));
 
-        let parsed_frame = ParsedFrame {
-            frame,
-            advance_by: end_index + TERMINATOR.len(),
-        };
+        let parsed_frame = ParsedFrame { frame, advance_by: end_index + TERMINATOR.len() };
 
         Ok(Some(parsed_frame))
     } else {
@@ -111,10 +116,7 @@ fn parse_integer(buf: &[u8]) -> ParseResult<Option<ParsedFrame>> {
 
         let frame = Frame::Integer(value);
 
-        let parsed_frame = ParsedFrame {
-            frame,
-            advance_by: end_index + TERMINATOR.len(),
-        };
+        let parsed_frame = ParsedFrame { frame, advance_by: end_index + TERMINATOR.len() };
 
         Ok(Some(parsed_frame))
     } else {
@@ -157,17 +159,14 @@ fn parse_array(buf: &[u8]) -> ParseResult<Option<ParsedFrame>> {
                 Some(parsed_frame) => {
                     advance_by += parsed_frame.advance_by;
                     frames.push(parsed_frame.frame);
-                },
+                }
                 None => return Ok(None),
             }
         }
 
         let frame = Frame::Array(frames.into_boxed_slice());
 
-        let parsed_frame = ParsedFrame {
-            frame,
-            advance_by,
-        };
+        let parsed_frame = ParsedFrame { frame, advance_by };
 
         Ok(Some(parsed_frame))
     } else {
@@ -191,8 +190,6 @@ fn parse_null(buf: &[u8]) -> ParseResult<Option<ParsedFrame>> {
 
     Ok(Some(parsed_frame))
 }
-
-
 
 impl Default for Parser {
     fn default() -> Self {
@@ -227,14 +224,21 @@ mod test {
         Frame::SimpleError(Bytes::copy_from_slice(b"Error message"))
     );
     test_parse!(integer, b":10\r\n", Frame::Integer(10));
-    test_parse!(bulk_string, b"$5\r\nhello\r\n", Frame::BulkString(Bytes::copy_from_slice(b"hello")));
+    test_parse!(
+        bulk_string,
+        b"$5\r\nhello\r\n",
+        Frame::BulkString(Bytes::copy_from_slice(b"hello"))
+    );
     test_parse!(empty_bulk_string, b"$0\r\n\r\n", Frame::BulkString(Bytes::new()));
     test_parse!(
         array,
         b"*2\r\n$5\r\nhello\r\n$5\r\nworld\r\n",
         Frame::Array(
-            vec![Frame::BulkString(Bytes::copy_from_slice(b"hello")), Frame::BulkString(Bytes::copy_from_slice(b"world"))]
-                .into_boxed_slice()
+            vec![
+                Frame::BulkString(Bytes::copy_from_slice(b"hello")),
+                Frame::BulkString(Bytes::copy_from_slice(b"world"))
+            ]
+            .into_boxed_slice()
         )
     );
     test_parse!(empty_array, b"*0\r\n", Frame::Array([].into()));

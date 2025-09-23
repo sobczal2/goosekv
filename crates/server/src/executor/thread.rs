@@ -2,6 +2,7 @@ use std::rc::Rc;
 
 use bytes::Bytes;
 use glommio::{
+    ExecutorJoinHandle,
     channels::{
         channel_mesh::{
             PartialMesh,
@@ -9,7 +10,9 @@ use glommio::{
             Senders,
         },
         shared_channel::SharedReceiver,
-    }, enclose, spawn_local, ExecutorJoinHandle
+    },
+    enclose,
+    spawn_local,
 };
 use goosekv_protocol::{
     command::Command,
@@ -101,7 +104,13 @@ async fn handle_context(
         Command::Get(get_command) => GetHandler.handle(get_command, senders).await,
         Command::Set(set_command) => SetHandler.handle(set_command, senders).await,
         // TODO: clean
-        Command::ConfigGet(_) => Frame::Array(vec![Frame::BulkString(Bytes::from("save".to_string().into_bytes())), Frame::BulkString(Bytes::new())].into_boxed_slice()),
+        Command::ConfigGet(_) => Frame::Array(
+            vec![
+                Frame::BulkString(Bytes::from("save".to_string().into_bytes())),
+                Frame::BulkString(Bytes::new()),
+            ]
+            .into_boxed_slice(),
+        ),
     };
 
     Ok(frame)
