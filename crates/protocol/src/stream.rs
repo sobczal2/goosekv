@@ -18,20 +18,20 @@ pub enum FrameStreamError {
 
 pub type FrameStreamResult<T> = std::result::Result<T, FrameStreamError>;
 
-pub struct FrameStream<'a, I> {
-    inner: &'a mut I,
+pub struct FrameStream<I> {
+    inner: I,
     parser: Parser,
     tmp: [u8; 1024],
     write_buf: BytesMut
 }
 
-impl<'a, I> FrameStream<'a, I> {
-    pub fn new(inner: &'a mut I) -> Self {
+impl<I> FrameStream<I> {
+    pub fn new(inner: I) -> Self {
         Self { inner, parser: Parser::new(), tmp: [0u8; 1024], write_buf: BytesMut::new() }
     }
 }
 
-impl<'a, I> Stream for FrameStream<'a, I>
+impl<I> Stream for FrameStream<I>
     where I: AsyncRead + Unpin
 {
     type Item = FrameStreamResult<Frame>;
@@ -67,7 +67,7 @@ impl<'a, I> Stream for FrameStream<'a, I>
     }
 }
 
-impl<'a, I> Sink<Frame> for FrameStream<'a, I>
+impl<I> Sink<Frame> for FrameStream<I>
     where I: AsyncWrite + Unpin
 {
     type Error = io::Error;
