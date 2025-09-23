@@ -3,7 +3,7 @@ use std::{io, net::SocketAddr, rc::Rc};
 use bytes::Bytes;
 use futures::{Sink, SinkExt, StreamExt};
 use glommio::{channels::channel_mesh::Senders, enclose, net::{TcpListener, TcpStream}, spawn_local};
-use goosekv_protocol::{command::Command as RespCommand, frame::Frame, stream::FrameStream};
+use goosekv_protocol::{command::GCommand, frame::Frame, stream::FrameStream};
 use tracing::{error, info};
 
 use crate::{acceptor::handler::{get::GetHandler, ping::PingHandler, set::SetHandler, Handler}, processor::command::{Command, CommandResponse}, router::SourceRouter};
@@ -40,7 +40,7 @@ async fn handle_stream(
         match result {
             Ok(request) => {
                 info!("received request: {request}");
-                let command = match RespCommand::from_frame(&request) {
+                let command = match GCommand::from_frame(&request) {
                     Ok(command) => command,
                     Err(error) => {
                         respond_with_error(&mut stream, error.into()).await;
@@ -60,15 +60,15 @@ async fn handle_stream(
 }
 
 async fn handle_command(
-    command: RespCommand,
+    command: GCommand,
     router: &SourceRouter<Command, CommandResponse>
 ) -> Frame {
     match command {
-        RespCommand::Ping(ping_command) => PingHandler.handle(ping_command, router).await,
-        RespCommand::Get(get_command) => GetHandler.handle(get_command, router).await,
-        RespCommand::Set(set_command) => SetHandler.handle(set_command, router).await,
+        GCommand::Ping(ping_command) => PingHandler.handle(ping_command, router).await,
+        GCommand::Get(get_command) => GetHandler.handle(get_command, router).await,
+        GCommand::Set(set_command) => SetHandler.handle(set_command, router).await,
         // TODO: fix
-        RespCommand::ConfigGet(_config_get_command) => Frame::Null,
+        GCommand::ConfigGet(_config_get_command) => Frame::Null,
     }
 }
 

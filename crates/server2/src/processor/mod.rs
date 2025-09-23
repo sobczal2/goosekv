@@ -1,7 +1,7 @@
 use bytes::Bytes;
 use futures::{SinkExt, StreamExt};
 use glommio::{channels::local_channel::LocalReceiver, executor, net::TcpStream, spawn_local, spawn_local_into, Latency, Shares};
-use goosekv_protocol::{command::Command, frame::Frame, stream::FrameStream};
+use goosekv_protocol::{command::GCommand, frame::Frame, stream::FrameStream};
 use tracing::error;
 
 use crate::processor::handler::handle_command;
@@ -48,7 +48,7 @@ async fn start_processing_stream(mut stream: FrameStream<TcpStream>) {
 }
 
 async fn handle_frame(frame: Frame) -> Frame {
-    let command = Command::from_frame(&frame);
+    let command = GCommand::from_frame(&frame);
     match command {
         Ok(command) => {
             handle_command(command).await

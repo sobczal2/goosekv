@@ -1,4 +1,4 @@
-use goosekv_protocol::{command::Command, frame::Frame};
+use goosekv_protocol::{command::GCommand, frame::Frame};
 
 use crate::processor::handler::ping::PingHandler;
 
@@ -8,11 +8,11 @@ pub trait Handler<C> {
     fn handle(&self, command: C) -> impl Future<Output = Frame>;
 }
 
-pub async fn handle_command(command: Command) -> Frame {
+pub async fn handle_command(command: GCommand) -> Frame {
     match command {
-        Command::Ping(ping_command) => PingHandler.handle(ping_command).await,
-        Command::Get(get_command) => todo!(),
-        Command::Set(set_command) => todo!(),
-        Command::ConfigGet(config_get_command) => todo!(),
+        GCommand::Ping(ping_command) => PingHandler.handle(ping_command).await,
+        GCommand::Get(get_command) => todo!(),
+        GCommand::Set(set_command) => todo!(),
+        GCommand::ConfigGet(config_get_command) => todo!(),
     }
 }

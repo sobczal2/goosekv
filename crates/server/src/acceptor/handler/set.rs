@@ -6,7 +6,7 @@ use std::hash::{
 
 use bytes::Bytes;
 use goosekv_protocol::{
-    command::SetCommand,
+    command::SetGCommand,
     frame::Frame,
 };
 use tracing::{
@@ -21,8 +21,8 @@ const INTERNAL_ERROR_MESSAGE: &[u8] = b"internal error"; // TODO: global?
 
 pub struct SetHandler;
 
-impl Handler<goosekv_protocol::command::SetCommand> for SetHandler {
-    async fn handle(&self, command: SetCommand, router: &SourceRouter<Command, CommandResponse>) -> Frame {
+impl Handler<goosekv_protocol::command::SetGCommand> for SetHandler {
+    async fn handle(&self, command: SetGCommand, router: &SourceRouter<Command, CommandResponse>) -> Frame {
         let mut hasher = DefaultHasher::default();
         command.key.hash(&mut hasher);
         let hash = hasher.finish();

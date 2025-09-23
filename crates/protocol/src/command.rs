@@ -1,7 +1,7 @@
 use bytes::Bytes;
 use thiserror::Error;
 
-use crate::frame::Frame;
+use crate::{data_type::GString, frame::Frame};
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -19,42 +19,36 @@ pub enum Error {
 
 pub type Result<T> = std::result::Result<T, Error>;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct Key(pub Box<[u8]>);
-
-#[derive(Debug, Clone)]
-pub struct Value(pub Box<[u8]>);
-
 #[derive(Debug)]
-pub enum Command {
-    Ping(PingCommand),
-    Get(GetCommand),
-    Set(SetCommand),
-    ConfigGet(ConfigGetCommand),
+pub enum GCommand {
+    Ping(PingGCommand),
+    Get(GetGCommand),
+    Set(SetGCommand),
+    ConfigGet(ConfigGetGCommand),
 }
 
 #[derive(Debug)]
-pub struct PingCommand {
+pub struct PingGCommand {
     pub message: Option<Bytes>,
 }
 
 #[derive(Debug)]
-pub struct GetCommand {
-    pub key: Key,
+pub struct GetGCommand {
+    pub key: GString,
 }
 
 #[derive(Debug)]
-pub struct SetCommand {
-    pub key: Key,
-    pub value: Value,
+pub struct SetGCommand {
+    pub key: GString,
+    pub value: GString,
 }
 
 #[derive(Debug)]
-pub struct ConfigGetCommand {
+pub struct ConfigGetGCommand {
     pub parameter: Bytes,
 }
 
-impl Command {
+impl GCommand {
     pub fn from_frame(frame: &Frame) -> Result<Self> {
         let frames = frame.as_array().map_err(|_| Error::InvalidFrame)?;
 
@@ -83,7 +77,7 @@ impl Command {
 
     fn parse_ping(frames: &[Frame]) -> Result<Self> {
         if frames.is_empty() {
-            return Ok(Command::Ping(PingCommand { message: None }));
+            return Ok(GCommand::Ping(PingGCommand { message: None }));
         }
 
         if frames.len() != 1 {
@@ -92,7 +86,7 @@ impl Command {
 
         match frames[0] {
             Frame::BulkString(ref value) => {
-                Ok(Command::Ping(PingCommand { message: Some(value.clone()) }))
+                Ok(GCommand::Ping(PingGCommand { message: Some(value.clone()) }))
             }
             _ => Err(Error::InvalidArg("invalid message frame".to_string())),
         }
@@ -107,13 +101,11 @@ impl Command {
             return Err(Error::TooManyArgs);
         }
 
-        let key = Key(frames[0]
+        let key_slice = frames[0]
             .as_bulk_string()
-            .map_err(|_| Error::InvalidArg("invalid key".to_string()))?
-            .to_vec()
-            .into_boxed_slice());
+            .map_err(|_| Error::InvalidArg("invalid key".to_string()))?;
 
-        Ok(Command::Get(GetCommand { key }))
+        Ok(GCommand::Get(GetGCommand { key: GString::copy_from_slice(&key_slice) }))
     }
 
     fn parse_set(frames: &[Frame]) -> Result<Self> {
@@ -125,20 +117,18 @@ impl Command {
             return Err(Error::TooManyArgs);
         }
 
-        let key = Key(frames[0]
+        let key_slice = frames[0]
             .as_bulk_string()
-            .map_err(|_| Error::InvalidArg("invalid key".to_string()))?
-            .to_vec()
-            .into_boxed_slice());
-        let value = Value(
-            frames[1]
-                .as_bulk_string()
-                .map_err(|_| Error::InvalidArg("invalid value".to_string()))?
-                .to_vec()
-                .into_boxed_slice(),
-        );
+            .map_err(|_| Error::InvalidArg("invalid key".to_string()))?;
+        let key = GString::copy_from_slice(&key_slice);
 
-        Ok(Command::Set(SetCommand { key, value }))
+        let value_slice = frames[1]
+                .as_bulk_string()
+                .map_err(|_| Error::InvalidArg("invalid value".to_string()))?;
+        let value = GString::copy_from_slice(&value_slice);
+
+
+        Ok(GCommand::Set(SetGCommand { key, value}))
     }
 
     fn parse_config_get(frames: &[Frame]) -> Result<Self> {
@@ -157,19 +147,19 @@ impl Command {
         const ALLOWED_PARAMETER_VALUES: [&[u8]; 1] = [b"save"];
 
         if ALLOWED_PARAMETER_VALUES.contains(&parameter.as_ref()) {
-            Ok(Command::ConfigGet(ConfigGetCommand { parameter }))
+            Ok(GCommand::ConfigGet(ConfigGetGCommand { parameter }))
         }
         else {
             Err(Error::InvalidArg("not supported parameter".to_string()))
         }
     }
 
-    pub fn key(&self) -> Option<Key> {
+    pub fn key(&self) -> Option<GString> {
         match self {
-            Command::Ping(..) => None,
-            Command::Get(get_command) => Some(get_command.key.clone()),
-            Command::Set(set_command) => Some(set_command.key.clone()),
-            Command::ConfigGet(..) => None,
+            GCommand::Ping(..) => None,
+            GCommand::Get(get_command) => Some(get_command.key.clone()),
+            GCommand::Set(set_command) => Some(set_command.key.clone()),
+            GCommand::ConfigGet(..) => None,
         }
     }
 }
