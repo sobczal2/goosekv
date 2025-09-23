@@ -1,24 +1,21 @@
-use std::fmt::{self, Formatter};
-
-use glommio::channels::shared_channel::SharedSender;
 use goosekv_protocol::command::{Key, Value};
 
+#[derive(Debug)]
 pub enum Command {
-    Get(Key, SharedSender<GetResponse>),
-    Set(Key, Value, SharedSender<SetResponse>),
+    Get(Key),
+    Set(Key, Value),
 }
 
-impl fmt::Debug for Command {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+pub enum CommandResponse {
+    Empty,
+    Value(Value),
+}
+
+impl CommandResponse {
+    pub fn as_value(self) -> Value {
         match self {
-            Self::Get(key, _) => f.debug_tuple("Get").field(key).finish(),
-            Self::Set(key, value, _) => f.debug_tuple("Set").field(key).field(value).finish(),
+            CommandResponse::Value(value) => value,
+            CommandResponse::Empty => panic!(),
         }
     }
 }
-
-pub struct GetResponse {
-    pub value: Option<Value>,
-}
-
-pub struct SetResponse;

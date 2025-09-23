@@ -55,7 +55,6 @@ impl<'a, I> Stream for FrameStream<'a, I>
             },
             Poll::Ready(Ok(n)) => {
                 me.parser.buf_mut().extend_from_slice(&me.tmp[..n]);
-                println!("buffer x: {:?}", str::from_utf8(&me.tmp));
                 if let Some(frame) = me.parser.parse()? {
                     return Poll::Ready(Some(Ok(frame)));
                 }
