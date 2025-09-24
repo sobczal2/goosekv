@@ -1,7 +1,7 @@
 use bytes::Bytes;
 use thiserror::Error;
 
-use crate::{data_type::GString, frame::Frame};
+use crate::{data_type::GString, frame::GFrame};
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -49,7 +49,7 @@ pub struct ConfigGetGCommand {
 }
 
 impl GCommand {
-    pub fn from_frame(frame: &Frame) -> Result<Self> {
+    pub fn from_frame(frame: &GFrame) -> Result<Self> {
         let frames = frame.as_array().map_err(|_| Error::InvalidFrame)?;
 
         if frames.is_empty() {
@@ -75,7 +75,7 @@ impl GCommand {
         }
     }
 
-    fn parse_ping(frames: &[Frame]) -> Result<Self> {
+    fn parse_ping(frames: &[GFrame]) -> Result<Self> {
         if frames.is_empty() {
             return Ok(GCommand::Ping(PingGCommand { message: None }));
         }
@@ -85,14 +85,14 @@ impl GCommand {
         }
 
         match frames[0] {
-            Frame::BulkString(ref value) => {
+            GFrame::BulkString(ref value) => {
                 Ok(GCommand::Ping(PingGCommand { message: Some(value.clone()) }))
             }
             _ => Err(Error::InvalidArg("invalid message frame".to_string())),
         }
     }
 
-    fn parse_get(frames: &[Frame]) -> Result<Self> {
+    fn parse_get(frames: &[GFrame]) -> Result<Self> {
         if frames.is_empty() {
             return Err(Error::NotEnoughArgs);
         }
@@ -108,7 +108,7 @@ impl GCommand {
         Ok(GCommand::Get(GetGCommand { key: GString::copy_from_slice(&key_slice) }))
     }
 
-    fn parse_set(frames: &[Frame]) -> Result<Self> {
+    fn parse_set(frames: &[GFrame]) -> Result<Self> {
         if frames.len() < 2 {
             return Err(Error::NotEnoughArgs);
         }
@@ -131,7 +131,7 @@ impl GCommand {
         Ok(GCommand::Set(SetGCommand { key, value}))
     }
 
-    fn parse_config_get(frames: &[Frame]) -> Result<Self> {
+    fn parse_config_get(frames: &[GFrame]) -> Result<Self> {
         if frames.is_empty() {
             return Err(Error::NotEnoughArgs);
         }

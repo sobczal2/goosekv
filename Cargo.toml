@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/protocol", "crates/server"]
+members = ["crates/protocol", "crates/server2"]
 resolver = "3"
 
 [workspace.dependencies]
@@ -11,4 +11,4 @@ futures = { version = "0.3.31" }
 anyhow = { version = "1.0.100" }
 tracing = { version = "0.1.41" }
 tracing-subscriber = { version = "0.3.20" }
-
+async-channel = { version = "2.5.0" }

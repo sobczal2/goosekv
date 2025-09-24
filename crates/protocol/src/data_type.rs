@@ -1,13 +1,19 @@
-use std::{fmt, rc::Rc};
+use std::{fmt};
+
+use bytes::Bytes;
 
 #[derive(Clone, Hash, PartialEq, Eq)]
 pub struct GString {
-    value: Rc<[u8]>,
+    value: Bytes,
 }
 
 impl GString {
     pub fn copy_from_slice(data: &[u8]) -> Self {
-        Self { value: data.into() }
+        Self { value: Bytes::copy_from_slice(data) }
+    }
+
+    pub fn bytes(&self) -> Bytes {
+        self.value.clone()
     }
 }
 

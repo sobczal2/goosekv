@@ -1,18 +1,20 @@
-use goosekv_protocol::{command::GCommand, frame::Frame};
+use goosekv_protocol::{command::GCommand, frame::GFrame};
 
-use crate::processor::handler::ping::PingHandler;
+use crate::{processor::handler::{get::GetHandler, ping::PingHandler, set::SetHandler}, storage::router::StorageRouter};
 
 pub mod ping;
+pub mod set;
+pub mod get;
 
 pub trait Handler<C> {
-    fn handle(&self, command: C) -> impl Future<Output = Frame>;
+    fn handle(&self, command: C, storage: StorageRouter) -> impl Future<Output = GFrame>;
 }
 
-pub async fn handle_command(command: GCommand) -> Frame {
+pub async fn handle_gcommand(command: GCommand, storage: StorageRouter) -> GFrame {
     match command {
-        GCommand::Ping(ping_command) => PingHandler.handle(ping_command).await,
-        GCommand::Get(get_command) => todo!(),
-        GCommand::Set(set_command) => todo!(),
-        GCommand::ConfigGet(config_get_command) => todo!(),
+        GCommand::Ping(ping_command) => PingHandler.handle(ping_command, storage).await,
+        GCommand::Get(get_command) => GetHandler.handle(get_command, storage).await,
+        GCommand::Set(set_command) => SetHandler.handle(set_command, storage).await,
+        GCommand::ConfigGet(_config_get_command) => GFrame::Null,
     }
 }

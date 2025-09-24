@@ -1,13 +1,13 @@
-use std::{collections::VecDeque, io, pin::{pin, Pin}, task::{Context, Poll}};
+use std::{io, pin::Pin, task::{Context, Poll}};
 
 use bytes::{Buf, BytesMut};
 use futures::{AsyncRead, AsyncWrite, Sink, Stream};
 use thiserror::Error;
 
-use crate::{frame::Frame, parser::{ParseError, Parser}};
+use crate::{frame::GFrame, parser::{ParseError, Parser}};
 
 #[derive(Debug, Error)]
-pub enum FrameStreamError {
+pub enum GFrameStreamError {
     #[error("unexpected end of file")]
     UnexpectedEof,
     #[error("IO error: {0}")]
@@ -16,25 +16,25 @@ pub enum FrameStreamError {
     Parsing(#[from] ParseError),
 }
 
-pub type FrameStreamResult<T> = std::result::Result<T, FrameStreamError>;
+pub type GFrameStreamResult = std::result::Result<GFrame, GFrameStreamError>;
 
-pub struct FrameStream<I> {
+pub struct GFrameStream<I> {
     inner: I,
     parser: Parser,
     tmp: [u8; 1024],
     write_buf: BytesMut
 }
 
-impl<I> FrameStream<I> {
+impl<I> GFrameStream<I> {
     pub fn new(inner: I) -> Self {
         Self { inner, parser: Parser::new(), tmp: [0u8; 1024], write_buf: BytesMut::new() }
     }
 }
 
-impl<I> Stream for FrameStream<I>
+impl<I> Stream for GFrameStream<I>
     where I: AsyncRead + Unpin
 {
-    type Item = FrameStreamResult<Frame>;
+    type Item = GFrameStreamResult;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let me = self.get_mut();
@@ -50,7 +50,7 @@ impl<I> Stream for FrameStream<I>
                 if me.parser.buf().is_empty() {
                     Poll::Ready(None)
                 } else {
-                    Poll::Ready(Some(Err(FrameStreamError::UnexpectedEof)))
+                    Poll::Ready(Some(Err(GFrameStreamError::UnexpectedEof)))
                 }
             },
             Poll::Ready(Ok(n)) => {
@@ -67,7 +67,7 @@ impl<I> Stream for FrameStream<I>
     }
 }
 
-impl<I> Sink<Frame> for FrameStream<I>
+impl<I> Sink<GFrame> for GFrameStream<I>
     where I: AsyncWrite + Unpin
 {
     type Error = io::Error;
@@ -76,7 +76,7 @@ impl<I> Sink<Frame> for FrameStream<I>
         Poll::Ready(Ok(()))
     }
 
-    fn start_send(mut self: Pin<&mut Self>, item: Frame) -> Result<(), Self::Error> {
+    fn start_send(mut self: Pin<&mut Self>, item: GFrame) -> Result<(), Self::Error> {
         self.write_buf.extend_from_slice(&item.bytes());
         Ok(())
     }

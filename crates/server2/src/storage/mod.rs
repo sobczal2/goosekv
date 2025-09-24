@@ -5,6 +5,11 @@ use goosekv_protocol::data_type::GString;
 use crate::storage::value::Value;
 
 pub mod value;
+pub mod request;
+pub mod response;
+pub mod handle;
+pub mod router;
+pub mod actor;
 
 pub struct Storage {
     data: HashMap<GString, Value>,

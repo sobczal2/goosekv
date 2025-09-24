@@ -1,39 +1,42 @@
 use std::net::SocketAddr;
 
 use futures::{select, FutureExt};
-use glommio::{channels::local_channel, ExecutorJoinHandle, LocalExecutorBuilder};
+use glommio::{ExecutorJoinHandle, LocalExecutorBuilder};
 use tracing::info;
 
-use crate::{acceptor::Acceptor, processor::Processor};
+use crate::{acceptor::actor::AcceptorActor, processor::actor::ProcessorActor, storage::{actor::StorageActor, router::StorageRouter}};
 
 pub struct Shard {
-    addr: SocketAddr,
     name: String,
+    acceptor: AcceptorActor,
+    processor: ProcessorActor,
+    storage: StorageActor,
 }
 
 impl Shard {
     pub fn new(addr: SocketAddr, name: String) -> Self {
-        Self { addr, name }
+        Self { name, acceptor: AcceptorActor::new(addr), processor: ProcessorActor::new(), storage: StorageActor::new() }
     }
 
-    pub fn start(self) -> ExecutorJoinHandle<Self> {
+    pub fn start(self, storage: StorageRouter) -> ExecutorJoinHandle<()> {
         LocalExecutorBuilder::default()
             .name(&self.name)
             .spawn(async move || {
-                let (sender, receiver) = local_channel::new_bounded(32);
-                let acceptor = Acceptor::new(self.addr);
-                let processor = Processor::new();
+                let storage_task = self.storage.run();
+                let (processor_task, processor_handle) = self.processor.run(storage);
+                let acceptor_task = self.acceptor.run(processor_handle);
 
                 select! {
-                    _ = acceptor.start(sender).fuse() => {
+                    _ = acceptor_task.fuse() => {
                         info!("acceptor exited");
                     },
-                    _ = processor.start(receiver).fuse() => {
+                    _ = processor_task.fuse() => {
                         info!("processor exited");
                     },
+                    _ = storage_task.fuse() => {
+                        info!("storage exited");
+                    },
                 };
-
-                self
             })
             .unwrap()
     }
@@ -64,13 +67,19 @@ impl Shards {
     }
 
     pub fn start(self) -> ShardsHandle {
-        let handles = self.inner.into_iter().map(Shard::start).collect();
+        let storage_handles = self.inner.iter().map(|shard| shard.storage.handle()).collect();
+        let router = StorageRouter::new(storage_handles);
+
+        let handles = self.inner.into_iter().map(|shard| {
+            shard.start(router.clone())
+        }).collect();
+
         ShardsHandle { inner: handles }
     }
 }
 
 pub struct ShardsHandle {
-    inner: Box<[ExecutorJoinHandle<Shard>]>
+    inner: Box<[ExecutorJoinHandle<()>]>
 }
 
 impl ShardsHandle {

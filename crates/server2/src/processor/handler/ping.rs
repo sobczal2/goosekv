@@ -1,17 +1,17 @@
 use bytes::Bytes;
-use goosekv_protocol::{command::PingGCommand, frame::Frame};
+use goosekv_protocol::{command::PingGCommand, frame::GFrame};
 
-use crate::processor::handler::Handler;
+use crate::{processor::handler::Handler, storage::router::StorageRouter};
 
 const PONG_MESSAGE: &[u8] = b"PONG";
 
 pub struct PingHandler;
 
 impl Handler<PingGCommand> for PingHandler {
-    async fn handle(&self, command: PingGCommand) -> Frame {
+    async fn handle(&self, command: PingGCommand, _storage: StorageRouter) -> GFrame {
         match command.message {
-            Some(message) => Frame::BulkString(message),
-            None => Frame::SimpleString(Bytes::from_static(PONG_MESSAGE)),
+            Some(message) => GFrame::BulkString(message),
+            None => GFrame::SimpleString(Bytes::from_static(PONG_MESSAGE)),
         }
     }
 }
