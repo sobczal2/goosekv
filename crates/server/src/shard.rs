@@ -1,8 +1,6 @@
 use std::net::SocketAddr;
 
-use futures::{select, FutureExt};
-use glommio::{ExecutorJoinHandle, LocalExecutorBuilder};
-use tracing::info;
+use glommio::{sync::Gate, ExecutorJoinHandle, LocalExecutorBuilder};
 
 use crate::{acceptor::actor::AcceptorActor, processor::actor::ProcessorActor, storage::{actor::StorageActor, router::StorageRouter}};
 
@@ -22,21 +20,16 @@ impl Shard {
         LocalExecutorBuilder::default()
             .name(&self.name)
             .spawn(async move || {
+                let gate = Gate::new();
                 let storage_task = self.storage.run();
                 let (processor_task, processor_handle) = self.processor.run(storage);
                 let acceptor_task = self.acceptor.run(processor_handle);
 
-                select! {
-                    _ = acceptor_task.fuse() => {
-                        info!("acceptor exited");
-                    },
-                    _ = processor_task.fuse() => {
-                        info!("processor exited");
-                    },
-                    _ = storage_task.fuse() => {
-                        info!("storage exited");
-                    },
-                };
+                gate.spawn(storage_task).unwrap().detach();
+                gate.spawn(processor_task).unwrap().detach();
+                gate.spawn(acceptor_task).unwrap().detach();
+
+                gate.close().await.unwrap()
             })
             .unwrap()
     }
@@ -67,11 +60,11 @@ impl Shards {
     }
 
     pub fn start(self) -> ShardsHandle {
-        let storage_handles = self.inner.iter().map(|shard| shard.storage.handle()).collect();
-        let router = StorageRouter::new(storage_handles);
+        let storage_handles = self.inner.iter().map(|shard| shard.storage.handle()).collect::<Box<[_]>>();
 
         let handles = self.inner.into_iter().map(|shard| {
-            shard.start(router.clone())
+            let router = StorageRouter::new(storage_handles.iter().cloned().collect());
+            shard.start(router)
         }).collect();
 
         ShardsHandle { inner: handles }

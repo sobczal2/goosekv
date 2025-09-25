@@ -1,26 +1,17 @@
-use std::{
-    net::SocketAddr,
-    num::NonZeroUsize,
-    str::FromStr,
-    thread::available_parallelism,
-};
+use std::{net::SocketAddr, num::NonZeroUsize, str::FromStr, thread::available_parallelism};
 
-use goosekv_server::{router::Router, shard};
+use goosekv_server::shard::{ShardBuilder, Shards};
 
 fn main() {
-    tracing_subscriber::fmt().with_thread_ids(true).with_thread_names(true).init();
+    tracing_subscriber::fmt()
+        .with_thread_names(true)
+        .init();
 
     let thread_count = available_parallelism().unwrap_or(NonZeroUsize::new(1).unwrap());
     let addr = SocketAddr::from_str("127.0.0.1:6379").unwrap();
 
-    let router = Router::new(thread_count.get());
+    let shard_builder = ShardBuilder::new(addr);
+    let shards = Shards::from_builder(shard_builder, thread_count.get(), "SHARD".to_string());
 
-    let mut handles = Vec::new();
-    for _ in 0..thread_count.get() {
-        handles.push(shard::thread::Thread::new(addr).start(router.clone()));
-    }
-
-    for handle in handles {
-        handle.join().unwrap();
-    }
+    shards.start().join_all();
 }

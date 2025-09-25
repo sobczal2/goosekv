@@ -1,5 +1,4 @@
 use async_channel::{Receiver, Sender};
-use tracing::info;
 
 use crate::storage::{handle::StorageHandle, request::Request, response::{GetResponse, SetResponse}, Storage};
 
@@ -19,17 +18,16 @@ impl StorageActor {
         StorageHandle::new(self.sender.clone())
     }
 
-    pub async fn run(self) {
+    pub async fn run(mut self) {
         while let Ok(request) = self.receiver.recv().await {
             match request {
                 Request::Get(get_request, respond) => {
                     let value = self.storage.get(get_request.key);
-                    respond.send(GetResponse { value }).await.unwrap();
+                    respond.send(GetResponse { value }).unwrap();
                 },
                 Request::Set(set_request, respond) => {
-                    info!("set");
-                    let original_value = self.storage.get(set_request.key);
-                    respond.send(SetResponse { original_value }).await.unwrap();
+                    let original_value = self.storage.set(set_request.key, set_request.value);
+                    respond.send(SetResponse { original_value }).unwrap();
                 },
             }
         }

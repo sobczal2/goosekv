@@ -1,3 +1,5 @@
+use futures::channel::oneshot;
+
 use crate::storage::{request::{GetRequest, Request, SetRequest}, response::{GetResponse, SetResponse}};
 
 #[derive(Clone)]
@@ -11,14 +13,14 @@ impl StorageHandle {
     }
 
     pub async fn get(&self, request: GetRequest) -> GetResponse {
-        let (sender, receiver) = async_channel::bounded(1);
+        let (sender, receiver) = oneshot::channel();
         self.sender.send(Request::Get(request, sender)).await.unwrap();
-        receiver.recv().await.unwrap()
+        receiver.await.unwrap()
     }
 
     pub async fn set(&self, request: SetRequest) -> SetResponse {
-        let (sender, receiver) = async_channel::bounded(1);
+        let (sender, receiver) = oneshot::channel();
         self.sender.send(Request::Set(request, sender)).await.unwrap();
-        receiver.recv().await.unwrap()
+        receiver.await.unwrap()
     }
 }

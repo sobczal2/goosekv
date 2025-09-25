@@ -7,10 +7,10 @@ pub mod set;
 pub mod get;
 
 pub trait Handler<C> {
-    fn handle(&self, command: C, storage: StorageRouter) -> impl Future<Output = GFrame>;
+    fn handle(&self, command: C, storage: &StorageRouter) -> impl Future<Output = GFrame>;
 }
 
-pub async fn handle_gcommand(command: GCommand, storage: StorageRouter) -> GFrame {
+pub async fn handle_gcommand(command: GCommand, storage: &StorageRouter) -> GFrame {
     match command {
         GCommand::Ping(ping_command) => PingHandler.handle(ping_command, storage).await,
         GCommand::Get(get_command) => GetHandler.handle(get_command, storage).await,

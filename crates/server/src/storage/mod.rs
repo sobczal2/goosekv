@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use goosekv_protocol::data_type::GString;
+use tracing::info;
 
 use crate::storage::value::Value;
 
@@ -21,10 +22,12 @@ impl Storage {
     }
 
     pub fn get(&self, key: GString) -> Option<Value> {
+        info!("get");
         self.data.get(&key).cloned()
     }
 
     pub fn set(&mut self, key: GString, value: Value) -> Option<Value> {
+        info!("set");
         self.data.insert(key, value)
     }
 }

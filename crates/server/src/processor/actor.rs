@@ -1,8 +1,8 @@
-use std::time::Duration;
+use std::{rc::Rc, time::Duration};
 
 use bytes::Bytes;
 use futures::{SinkExt, StreamExt};
-use glommio::{channels::local_channel::{self, LocalReceiver}, executor, net::TcpStream, spawn_local_into, Latency, Shares};
+use glommio::{channels::local_channel::{self, LocalReceiver}, executor, net::TcpStream, spawn_local, spawn_local_into, Latency, Shares};
 use goosekv_protocol::{command::GCommand, frame::GFrame, stream::GFrameStream};
 use tracing::{error, info};
 
@@ -30,22 +30,24 @@ impl ProcessorActor {
 }
 
 async fn run(receiver: LocalReceiver<ProcessorCommand>, router: StorageRouter) {
+    let router = Rc::new(router);
     while let Some(command) = receiver.recv().await {
         match command {
             ProcessorCommand::Process(process_command) => {
-                process(process_command, router.clone()).await
+                let router = router.clone();
+                spawn_local(async move { process(process_command, router.clone()).await }).detach();
             }
         }
     }
 }
 
-async fn process(mut command: ProcessCommand, router: StorageRouter) {
+async fn process(mut command: ProcessCommand, router: Rc<StorageRouter>) {
     info!("started processing");
     while let Some(frame) = command.stream.next().await {
         info!("new frame");
         match frame {
             Ok(frame) => {
-                let response = handle_frame(frame, router.clone()).await;
+                let response = handle_frame(frame, &router).await;
                 if let Err(error) = command.stream.send(response).await {
                     error!("failed to respond: {error}");
                 }
@@ -59,7 +61,7 @@ async fn process(mut command: ProcessCommand, router: StorageRouter) {
     }
 }
 
-async fn handle_frame(frame: GFrame, router: StorageRouter) -> GFrame {
+async fn handle_frame(frame: GFrame, router: &StorageRouter) -> GFrame {
     let command = GCommand::from_frame(&frame);
     match command {
         Ok(command) => {

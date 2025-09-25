@@ -8,7 +8,7 @@ const PONG_MESSAGE: &[u8] = b"PONG";
 pub struct PingHandler;
 
 impl Handler<PingGCommand> for PingHandler {
-    async fn handle(&self, command: PingGCommand, _storage: StorageRouter) -> GFrame {
+    async fn handle(&self, command: PingGCommand, _storage: &StorageRouter) -> GFrame {
         match command.message {
             Some(message) => GFrame::BulkString(message),
             None => GFrame::SimpleString(Bytes::from_static(PONG_MESSAGE)),
