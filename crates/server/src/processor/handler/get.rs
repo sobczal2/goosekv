@@ -1,7 +1,15 @@
-use goosekv_protocol::{command::GetGCommand, frame::GFrame};
+use goosekv_protocol::{
+    command::GetGCommand,
+    frame::GFrame,
+};
 
-use crate::{processor::handler::Handler, storage::{request::GetRequest, router::StorageRouter}};
-
+use crate::{
+    processor::handler::Handler,
+    storage::{
+        request::GetRequest,
+        router::StorageRouter,
+    },
+};
 
 pub struct GetHandler;
 

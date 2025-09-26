@@ -1,8 +1,19 @@
 use std::net::SocketAddr;
 
-use glommio::{sync::Gate, ExecutorJoinHandle, LocalExecutorBuilder};
+use glommio::{
+    ExecutorJoinHandle,
+    LocalExecutorBuilder,
+    sync::Gate,
+};
 
-use crate::{acceptor::actor::AcceptorActor, processor::actor::ProcessorActor, storage::{actor::StorageActor, router::StorageRouter}};
+use crate::{
+    acceptor::actor::AcceptorActor,
+    processor::actor::ProcessorActor,
+    storage::{
+        actor::StorageActor,
+        router::StorageRouter,
+    },
+};
 
 pub struct Shard {
     name: String,
@@ -13,7 +24,12 @@ pub struct Shard {
 
 impl Shard {
     pub fn new(addr: SocketAddr, name: String) -> Self {
-        Self { name, acceptor: AcceptorActor::new(addr), processor: ProcessorActor::new(), storage: StorageActor::new() }
+        Self {
+            name,
+            acceptor: AcceptorActor::new(addr),
+            processor: ProcessorActor::new(),
+            storage: StorageActor::new(),
+        }
     }
 
     pub fn start(self, storage: StorageRouter) -> ExecutorJoinHandle<()> {
@@ -60,23 +76,30 @@ impl Shards {
     }
 
     pub fn start(self) -> ShardsHandle {
-        let storage_handles = self.inner.iter().map(|shard| shard.storage.handle()).collect::<Box<[_]>>();
+        let storage_handles =
+            self.inner.iter().map(|shard| shard.storage.handle()).collect::<Box<[_]>>();
 
-        let handles = self.inner.into_iter().map(|shard| {
-            let router = StorageRouter::new(storage_handles.iter().cloned().collect());
-            shard.start(router)
-        }).collect();
+        let handles = self
+            .inner
+            .into_iter()
+            .map(|shard| {
+                let router = StorageRouter::new(storage_handles.iter().cloned().collect());
+                shard.start(router)
+            })
+            .collect();
 
         ShardsHandle { inner: handles }
     }
 }
 
 pub struct ShardsHandle {
-    inner: Box<[ExecutorJoinHandle<()>]>
+    inner: Box<[ExecutorJoinHandle<()>]>,
 }
 
 impl ShardsHandle {
     pub fn join_all(self) {
-        self.inner.into_iter().for_each(|handle| { handle.join().unwrap(); });
+        self.inner.into_iter().for_each(|handle| {
+            handle.join().unwrap();
+        });
     }
 }

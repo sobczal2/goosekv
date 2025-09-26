@@ -1,6 +1,22 @@
-use std::{hash::{DefaultHasher, Hash, Hasher}};
+use std::hash::{
+    DefaultHasher,
+    Hash,
+    Hasher,
+};
 
-use crate::storage::{handle::StorageHandle, request::{GetRequest, SetRequest}, response::{GetResponse, SetResponse}};
+use crate::storage::{
+    handle::StorageHandle,
+    request::{
+        DeleteRequest,
+        GetRequest,
+        SetRequest,
+    },
+    response::{
+        DeleteResponse,
+        GetResponse,
+        SetResponse,
+    },
+};
 
 pub struct StorageRouter {
     handles: Box<[StorageHandle]>,
@@ -21,16 +37,9 @@ macro_rules! route {
 }
 
 impl StorageRouter {
-    pub async fn get(&self, request: GetRequest) -> GetResponse {
-        let mut hasher = DefaultHasher::default();
-        request.key.hash(&mut hasher);
-        let hash = hasher.finish();
-
-        let route = hash as usize % self.handles.len();
-
-        self.handles[route].get(request).await
-    }
+    route!(get, GetRequest, GetResponse);
     route!(set, SetRequest, SetResponse);
+    route!(delete, DeleteRequest, DeleteResponse);
 }
 
 impl StorageRouter {

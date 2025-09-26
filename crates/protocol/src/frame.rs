@@ -1,10 +1,15 @@
 use std::fmt::{
     self,
     Display,
-    Formatter, Write,
+    Formatter,
+    Write,
 };
 
-use bytes::{BufMut, Bytes, BytesMut};
+use bytes::{
+    BufMut,
+    Bytes,
+    BytesMut,
+};
 use thiserror::Error;
 
 pub const TERMINATOR: &[u8; 2] = b"\r\n";
@@ -50,21 +55,21 @@ impl GFrame {
                 bytes.put_u8(first_byte);
                 bytes.put(value.as_ref());
                 bytes.put(TERMINATOR.as_ref());
-            },
+            }
             GFrame::SimpleError(value) => {
                 let first_byte = SIMPLE_ERROR_FIRST_BYTE;
                 bytes.reserve(size_of_val(&first_byte) + value.len() + TERMINATOR.len());
                 bytes.put_u8(first_byte);
                 bytes.put(value.as_ref());
                 bytes.put(TERMINATOR.as_ref());
-            },
+            }
             GFrame::Integer(value) => {
                 let first_byte = INTEGER_FIRST_BYTE;
                 bytes.reserve(size_of_val(&first_byte) + size_of::<i64>() + TERMINATOR.len());
                 bytes.put_u8(first_byte);
                 bytes.write_fmt(format_args!("{value}")).unwrap();
                 bytes.put(TERMINATOR.as_ref());
-            },
+            }
             GFrame::BulkString(value) => {
                 let first_byte = BULK_STRING_FIRST_BYTE;
                 // TODO: reserve?
@@ -73,18 +78,18 @@ impl GFrame {
                 bytes.put(TERMINATOR.as_ref());
                 bytes.put(value.as_ref());
                 bytes.put(TERMINATOR.as_ref());
-            },
+            }
             GFrame::Array(frames) => {
                 for frame in frames {
                     frame.read_bytes(bytes);
                 }
-            },
+            }
             GFrame::Null => {
                 let first_byte = NULL_FIRST_BYTE;
                 bytes.reserve(size_of_val(&first_byte) + TERMINATOR.len());
                 bytes.put_u8(first_byte);
                 bytes.put(TERMINATOR.as_ref());
-            },
+            }
         }
     }
 
@@ -115,8 +120,8 @@ impl GFrame {
             _ => Err(InvalidFrameType),
         }
     }
-    
-    pub fn as_array(&self) -> Result<&Box<[GFrame]>, InvalidFrameType> {
+
+    pub fn as_array(&self) -> Result<&[GFrame], InvalidFrameType> {
         match self {
             GFrame::Array(value) => Ok(value),
             _ => Err(InvalidFrameType),

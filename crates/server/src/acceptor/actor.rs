@@ -4,7 +4,10 @@ use glommio::net::TcpListener;
 use goosekv_protocol::stream::GFrameStream;
 use tracing::info;
 
-use crate::processor::{command::ProcessCommand, handle::ProcessorHandle};
+use crate::processor::{
+    command::ProcessCommand,
+    handle::ProcessorHandle,
+};
 
 pub struct AcceptorActor {
     addr: SocketAddr,
@@ -25,4 +28,3 @@ impl AcceptorActor {
         }
     }
 }
-

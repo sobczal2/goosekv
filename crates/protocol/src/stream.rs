@@ -1,10 +1,31 @@
-use std::{io, pin::Pin, task::{Context, Poll}};
+use std::{
+    io,
+    pin::Pin,
+    task::{
+        Context,
+        Poll,
+    },
+};
 
-use bytes::{Buf, BytesMut};
-use futures::{AsyncRead, AsyncWrite, Sink, Stream};
+use bytes::{
+    Buf,
+    BytesMut,
+};
+use futures::{
+    AsyncRead,
+    AsyncWrite,
+    Sink,
+    Stream,
+};
 use thiserror::Error;
 
-use crate::{frame::GFrame, parser::{ParseError, Parser}};
+use crate::{
+    frame::GFrame,
+    parser::{
+        ParseError,
+        Parser,
+    },
+};
 
 #[derive(Debug, Error)]
 pub enum GFrameStreamError {
@@ -22,7 +43,7 @@ pub struct GFrameStream<I> {
     inner: I,
     parser: Parser,
     tmp: [u8; 1024],
-    write_buf: BytesMut
+    write_buf: BytesMut,
 }
 
 impl<I> GFrameStream<I> {
@@ -32,7 +53,8 @@ impl<I> GFrameStream<I> {
 }
 
 impl<I> Stream for GFrameStream<I>
-    where I: AsyncRead + Unpin
+where
+    I: AsyncRead + Unpin,
 {
     type Item = GFrameStreamResult;
 
@@ -52,7 +74,7 @@ impl<I> Stream for GFrameStream<I>
                 } else {
                     Poll::Ready(Some(Err(GFrameStreamError::UnexpectedEof)))
                 }
-            },
+            }
             Poll::Ready(Ok(n)) => {
                 me.parser.buf_mut().extend_from_slice(&me.tmp[..n]);
                 if let Some(frame) = me.parser.parse()? {
@@ -68,7 +90,8 @@ impl<I> Stream for GFrameStream<I>
 }
 
 impl<I> Sink<GFrame> for GFrameStream<I>
-    where I: AsyncWrite + Unpin
+where
+    I: AsyncWrite + Unpin,
 {
     type Error = io::Error;
 
@@ -93,7 +116,8 @@ impl<I> Sink<GFrame> for GFrameStream<I>
             buf.advance(n);
         }
 
-        Poll::Ready(Ok(()))}
+        Poll::Ready(Ok(()))
+    }
 
     fn poll_close(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         let flush_result = self.as_mut().poll_flush(cx);
@@ -101,5 +125,6 @@ impl<I> Sink<GFrame> for GFrameStream<I>
         match flush_result {
             Poll::Ready(Ok(())) => Pin::new(&mut self.inner).poll_close(cx),
             other => other,
-        }}
+        }
+    }
 }

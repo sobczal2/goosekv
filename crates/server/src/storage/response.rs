@@ -9,3 +9,8 @@ pub struct GetResponse {
 pub struct SetResponse {
     pub original_value: Option<Value>,
 }
+
+#[derive(Debug)]
+pub struct DeleteResponse {
+    pub value: Option<Value>,
+}

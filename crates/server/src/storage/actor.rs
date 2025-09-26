@@ -1,6 +1,19 @@
-use async_channel::{Receiver, Sender};
+use async_channel::{
+    Receiver,
+    Sender,
+};
+use tracing::info;
 
-use crate::storage::{handle::StorageHandle, request::Request, response::{GetResponse, SetResponse}, Storage};
+use crate::storage::{
+    Storage,
+    handle::StorageHandle,
+    request::Request,
+    response::{
+        DeleteResponse,
+        GetResponse,
+        SetResponse,
+    },
+};
 
 pub struct StorageActor {
     sender: Sender<Request>,
@@ -22,13 +35,20 @@ impl StorageActor {
         while let Ok(request) = self.receiver.recv().await {
             match request {
                 Request::Get(get_request, respond) => {
-                    let value = self.storage.get(get_request.key);
+                    info!("get value for key: {:?}", get_request.key);
+                    let value = self.storage.get(&get_request.key);
                     respond.send(GetResponse { value }).unwrap();
-                },
+                }
                 Request::Set(set_request, respond) => {
+                    info!("set value for key: {:?}", set_request.key);
                     let original_value = self.storage.set(set_request.key, set_request.value);
                     respond.send(SetResponse { original_value }).unwrap();
-                },
+                }
+                Request::Delete(delete_request, respond) => {
+                    info!("delete value for key: {:?}", delete_request.key);
+                    let value = self.storage.delete(&delete_request.key);
+                    respond.send(DeleteResponse { value }).unwrap()
+                }
             }
         }
     }

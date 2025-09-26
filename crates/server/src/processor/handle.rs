@@ -1,6 +1,9 @@
 use glommio::channels::local_channel::LocalSender;
 
-use crate::processor::command::{ProcessCommand, ProcessorCommand};
+use crate::processor::command::{
+    ProcessCommand,
+    ProcessorCommand,
+};
 
 pub struct ProcessorHandle {
     sender: LocalSender<ProcessorCommand>,
