@@ -28,6 +28,7 @@ pub enum GCommand {
     Get(GetGCommand),
     Set(SetGCommand),
     Del(DelGCommand),
+    Exists(ExistsGCommand),
     ConfigGet(ConfigGetGCommand),
 }
 
@@ -53,6 +54,11 @@ pub struct DelGCommand {
 }
 
 #[derive(Debug)]
+pub struct ExistsGCommand {
+    pub keys: Box<[GString]>,
+}
+
+#[derive(Debug)]
 pub struct ConfigGetGCommand {
     pub parameter: Bytes,
 }
@@ -70,6 +76,7 @@ impl GCommand {
             b"GET" => Self::parse_get(&frames[1..]),
             b"SET" => Self::parse_set(&frames[1..]),
             b"DEL" => Self::parse_del(&frames[1..]),
+            b"EXISTS" => Self::parse_exists(&frames[1..]),
             b"CONFIG" => {
                 if frames.len() >= 2 {
                     match frames[1].as_bulk_string().map_err(|_| Error::InvalidFrame)?.as_ref() {
@@ -153,6 +160,24 @@ impl GCommand {
             .collect::<Result<_>>()?;
 
         Ok(GCommand::Del(DelGCommand { keys }))
+    }
+    
+    fn parse_exists(frames: &[GFrame]) -> Result<Self> {
+        if frames.is_empty() {
+            return Err(Error::NotEnoughArgs);
+        }
+
+        let keys = frames
+            .iter()
+            .map(|frame| {
+                frame
+                    .as_bulk_string()
+                    .map(|bytes| GString::copy_from_slice(&bytes))
+                    .map_err(|_| Error::InvalidArg("invalid value".to_string()))
+            })
+            .collect::<Result<_>>()?;
+
+        Ok(GCommand::Exists(ExistsGCommand { keys }))
     }
 
     fn parse_config_get(frames: &[GFrame]) -> Result<Self> {
