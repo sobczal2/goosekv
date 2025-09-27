@@ -3,7 +3,6 @@ use std::{
     time::Duration,
 };
 
-use bytes::Bytes;
 use futures::{
     SinkExt,
     StreamExt,
@@ -21,9 +20,7 @@ use glommio::{
     spawn_local_into,
 };
 use goosekv_protocol::{
-    command::GCommand,
-    frame::GFrame,
-    stream::GFrameStream,
+    command::GCommand, data_type::GString, frame::GFrame, stream::GFrameStream
 };
 use tracing::{
     error,
@@ -112,7 +109,7 @@ async fn handle_frame(frame: GFrame, router: &StorageRouter) -> GFrame {
 }
 
 fn error_frame(message: &str) -> GFrame {
-    GFrame::SimpleError(Bytes::copy_from_slice(message.as_bytes()))
+    GFrame::SimpleError(GString::copy_from_slice(message.as_bytes()))
 }
 
 async fn handle_error(stream: &mut GFrameStream<TcpStream>, message: &str) {

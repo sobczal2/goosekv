@@ -1,7 +1,5 @@
-use bytes::Bytes;
 use goosekv_protocol::{
-    command::PingGCommand,
-    frame::GFrame,
+    command::PingGCommand, data_type::GString, frame::GFrame
 };
 
 use crate::{
@@ -16,8 +14,8 @@ pub struct PingHandler;
 impl Handler<PingGCommand> for PingHandler {
     async fn handle(&self, command: PingGCommand, _storage: &StorageRouter) -> GFrame {
         match command.message {
-            Some(message) => GFrame::BulkString(message),
-            None => GFrame::SimpleString(Bytes::from_static(PONG_MESSAGE)),
+            Some(message) => GFrame::BulkString(message.clone()),
+            None => GFrame::SimpleString(GString::from_static(PONG_MESSAGE)),
         }
     }
 }

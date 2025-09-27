@@ -1,7 +1,5 @@
-use bytes::Bytes;
 use goosekv_protocol::{
-    command::SetGCommand,
-    frame::GFrame,
+    command::SetGCommand, data_type::GString, frame::GFrame
 };
 
 use crate::{
@@ -29,6 +27,6 @@ impl Handler<SetGCommand> for SetHandler {
             })
             .await;
 
-        GFrame::SimpleString(Bytes::from_static(OK_MESSAGE))
+        GFrame::SimpleString(GString::from_static(OK_MESSAGE))
     }
 }

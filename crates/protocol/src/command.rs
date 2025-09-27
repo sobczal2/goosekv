@@ -1,4 +1,3 @@
-use bytes::Bytes;
 use thiserror::Error;
 
 use crate::{
@@ -34,7 +33,7 @@ pub enum GCommand {
 
 #[derive(Debug)]
 pub struct PingGCommand {
-    pub message: Option<Bytes>,
+    pub message: Option<GString>,
 }
 
 #[derive(Debug)]
@@ -60,7 +59,7 @@ pub struct ExistsGCommand {
 
 #[derive(Debug)]
 pub struct ConfigGetGCommand {
-    pub parameter: Bytes,
+    pub parameter: GString,
 }
 
 impl GCommand {
@@ -71,7 +70,7 @@ impl GCommand {
             return Err(Error::InvalidFrame);
         }
 
-        match frames[0].as_bulk_string().map_err(|_| Error::InvalidFrame)?.as_ref() {
+        match frames[0].as_bulk_string().map_err(|_| Error::InvalidFrame)?.bytes().as_ref() {
             b"PING" => Self::parse_ping(&frames[1..]),
             b"GET" => Self::parse_get(&frames[1..]),
             b"SET" => Self::parse_set(&frames[1..]),
@@ -79,7 +78,7 @@ impl GCommand {
             b"EXISTS" => Self::parse_exists(&frames[1..]),
             b"CONFIG" => {
                 if frames.len() >= 2 {
-                    match frames[1].as_bulk_string().map_err(|_| Error::InvalidFrame)?.as_ref() {
+                    match frames[1].as_bulk_string().map_err(|_| Error::InvalidFrame)?.bytes().as_ref() {
                         b"GET" => Self::parse_config_get(&frames[2..]),
                         _ => Err(Error::InvalidCommand),
                     }
@@ -117,10 +116,10 @@ impl GCommand {
             return Err(Error::TooManyArgs);
         }
 
-        let key_slice =
+        let key =
             frames[0].as_bulk_string().map_err(|_| Error::InvalidArg("invalid key".to_string()))?;
 
-        Ok(GCommand::Get(GetGCommand { key: GString::copy_from_slice(&key_slice) }))
+        Ok(GCommand::Get(GetGCommand { key }))
     }
 
     fn parse_set(frames: &[GFrame]) -> Result<Self> {
@@ -132,14 +131,12 @@ impl GCommand {
             return Err(Error::TooManyArgs);
         }
 
-        let key_slice =
+        let key =
             frames[0].as_bulk_string().map_err(|_| Error::InvalidArg("invalid key".to_string()))?;
-        let key = GString::copy_from_slice(&key_slice);
 
-        let value_slice = frames[1]
+        let value = frames[1]
             .as_bulk_string()
             .map_err(|_| Error::InvalidArg("invalid value".to_string()))?;
-        let value = GString::copy_from_slice(&value_slice);
 
         Ok(GCommand::Set(SetGCommand { key, value }))
     }
@@ -154,7 +151,6 @@ impl GCommand {
             .map(|frame| {
                 frame
                     .as_bulk_string()
-                    .map(|bytes| GString::copy_from_slice(&bytes))
                     .map_err(|_| Error::InvalidArg("invalid value".to_string()))
             })
             .collect::<Result<_>>()?;
@@ -172,7 +168,6 @@ impl GCommand {
             .map(|frame| {
                 frame
                     .as_bulk_string()
-                    .map(|bytes| GString::copy_from_slice(&bytes))
                     .map_err(|_| Error::InvalidArg("invalid value".to_string()))
             })
             .collect::<Result<_>>()?;
@@ -194,7 +189,7 @@ impl GCommand {
 
         const ALLOWED_PARAMETER_VALUES: [&[u8]; 1] = [b"save"];
 
-        if ALLOWED_PARAMETER_VALUES.contains(&parameter.as_ref()) {
+        if ALLOWED_PARAMETER_VALUES.contains(&parameter.bytes().as_ref()) {
             Ok(GCommand::ConfigGet(ConfigGetGCommand { parameter }))
         } else {
             Err(Error::InvalidArg("not supported parameter".to_string()))

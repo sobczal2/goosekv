@@ -18,7 +18,7 @@ impl Handler<GetGCommand> for GetHandler {
         let response = storage.get(GetRequest { key: command.key }).await;
 
         match response.value {
-            Some(value) => GFrame::BulkString(value.data.bytes()),
+            Some(value) => GFrame::BulkString(value.data.to_gstring()),
             None => GFrame::Null,
         }
     }
