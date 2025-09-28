@@ -27,6 +27,8 @@ pub async fn handle_gcommand(command: GCommand, storage: &StorageRouter) -> GFra
         GCommand::Set(set_command) => SetHandler.handle(set_command, storage).await,
         GCommand::Del(del_command) => DelHandler.handle(del_command, storage).await,
         GCommand::Exists(exists_command) => ExistsHandler.handle(exists_command, storage).await,
+        GCommand::Incr(incr_gcommand) => todo!(),
+        GCommand::Decr(decr_gcommand) => todo!(),
         GCommand::ConfigGet(_config_get_command) => GFrame::Null,
     }
 }

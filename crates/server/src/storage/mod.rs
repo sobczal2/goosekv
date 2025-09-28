@@ -31,6 +31,14 @@ impl Storage {
     pub fn delete(&mut self, key: &GString) -> Option<Value> {
         self.data.remove(key)
     }
+
+    pub fn update<F, R>(&mut self, key: GString, f: F) -> Option<R>
+    where F: FnOnce(&mut Value) -> R
+    {
+        let entry = self.data.entry(key).and_modify(f);
+
+        todo!()
+    }
 }
 
 impl Default for Storage {

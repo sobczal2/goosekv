@@ -28,6 +28,8 @@ pub enum GCommand {
     Set(SetGCommand),
     Del(DelGCommand),
     Exists(ExistsGCommand),
+    Incr(IncrGCommand),
+    Decr(DecrGCommand),
     ConfigGet(ConfigGetGCommand),
 }
 
@@ -58,6 +60,16 @@ pub struct ExistsGCommand {
 }
 
 #[derive(Debug)]
+pub struct IncrGCommand {
+    pub key: GString,
+}
+
+#[derive(Debug)]
+pub struct DecrGCommand {
+    pub key: GString,
+}
+
+#[derive(Debug)]
 pub struct ConfigGetGCommand {
     pub parameter: GString,
 }
@@ -75,6 +87,8 @@ impl GCommand {
             b"GET" => Self::parse_get(&frames[1..]),
             b"SET" => Self::parse_set(&frames[1..]),
             b"DEL" => Self::parse_del(&frames[1..]),
+            b"INCR" => Self::parse_incr(&frames[1..]),
+            b"DECR" => Self::parse_decr(&frames[1..]),
             b"EXISTS" => Self::parse_exists(&frames[1..]),
             b"CONFIG" => {
                 if frames.len() >= 2 {
@@ -173,6 +187,36 @@ impl GCommand {
             .collect::<Result<_>>()?;
 
         Ok(GCommand::Exists(ExistsGCommand { keys }))
+    }
+
+    fn parse_incr(frames: &[GFrame]) -> Result<Self> {
+        if frames.is_empty() {
+            return Err(Error::NotEnoughArgs);
+        }
+
+        if frames.len() > 1 {
+            return Err(Error::TooManyArgs);
+        }
+
+        let key =
+            frames[0].as_bulk_string().map_err(|_| Error::InvalidArg("invalid key".to_string()))?;
+
+        Ok(GCommand::Incr(IncrGCommand { key }))
+    }
+
+    fn parse_decr(frames: &[GFrame]) -> Result<Self> {
+        if frames.is_empty() {
+            return Err(Error::NotEnoughArgs);
+        }
+
+        if frames.len() > 1 {
+            return Err(Error::TooManyArgs);
+        }
+
+        let key =
+            frames[0].as_bulk_string().map_err(|_| Error::InvalidArg("invalid key".to_string()))?;
+
+        Ok(GCommand::Decr(DecrGCommand { key }))
     }
 
     fn parse_config_get(frames: &[GFrame]) -> Result<Self> {
