@@ -10,7 +10,7 @@ A simple thread per core key-value store implementation.
 - **Supported Commands**
   - `PING`
   - `GET`
-  - simplified `SET`
+  - simplified `SET` (without expiration time)
   - `DEL`
   - `EXISTS`
   - `INCR`
