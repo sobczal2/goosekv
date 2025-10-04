@@ -4,9 +4,19 @@ use bytes::{
 };
 use thiserror::Error;
 
-use crate::{data_type::GString, frame::{
-    GFrame, ARRAY_FIRST_BYTE, BULK_STRING_FIRST_BYTE, INTEGER_FIRST_BYTE, NULL_FIRST_BYTE, SIMPLE_ERROR_FIRST_BYTE, SIMPLE_STRING_FIRST_BYTE, TERMINATOR
-}};
+use crate::{
+    data_type::GString,
+    frame::{
+        ARRAY_FIRST_BYTE,
+        BULK_STRING_FIRST_BYTE,
+        GFrame,
+        INTEGER_FIRST_BYTE,
+        NULL_FIRST_BYTE,
+        SIMPLE_ERROR_FIRST_BYTE,
+        SIMPLE_STRING_FIRST_BYTE,
+        TERMINATOR,
+    },
+};
 
 #[derive(Debug, Error)]
 pub enum ParseError {
@@ -194,6 +204,8 @@ mod test {
     use std::io::Write;
 
     use bytes::BufMut;
+
+    use crate::data_type::GInteger;
 
     use super::*;
 

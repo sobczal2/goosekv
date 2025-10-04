@@ -10,11 +10,13 @@ use crate::storage::{
         DeleteRequest,
         GetRequest,
         SetRequest,
+        UpdateRequest,
     },
     response::{
         DeleteResponse,
         GetResponse,
         SetResponse,
+        UpdateResponse,
     },
 };
 
@@ -40,6 +42,7 @@ impl StorageRouter {
     route!(get, GetRequest, GetResponse);
     route!(set, SetRequest, SetResponse);
     route!(delete, DeleteRequest, DeleteResponse);
+    route!(update, UpdateRequest, UpdateResponse);
 }
 
 impl StorageRouter {

@@ -1,5 +1,8 @@
 use bytes::Bytes;
-use goosekv_protocol::data_type::{GInteger, GString};
+use goosekv_protocol::data_type::{
+    GInteger,
+    GString,
+};
 
 #[derive(Debug, Clone)]
 pub struct Value {
@@ -20,6 +23,7 @@ impl Data {
 
         Self::String(data)
     }
+
     pub fn bytes(&self) -> Bytes {
         match self {
             Data::String(gstring) => gstring.bytes(),
@@ -36,6 +40,7 @@ impl Data {
 }
 
 fn ginteger_from_gstring(data: GString) -> Result<GInteger, ()> {
+    println!("{data:?}");
     let bytes = data.bytes();
     let utf8 = str::from_utf8(&bytes).map_err(|_| ())?;
     utf8.parse().map_err(|_| ())

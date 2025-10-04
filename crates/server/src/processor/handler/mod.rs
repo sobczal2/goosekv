@@ -5,7 +5,12 @@ use goosekv_protocol::{
 
 use crate::{
     processor::handler::{
-        del::DelHandler, exists::ExistsHandler, get::GetHandler, ping::PingHandler, set::SetHandler
+        del::DelHandler,
+        exists::ExistsHandler,
+        get::GetHandler,
+        incr::IncrHandler,
+        ping::PingHandler,
+        set::SetHandler,
     },
     storage::router::StorageRouter,
 };
@@ -13,6 +18,7 @@ use crate::{
 pub mod del;
 pub mod exists;
 pub mod get;
+pub mod incr;
 pub mod ping;
 pub mod set;
 
@@ -27,8 +33,8 @@ pub async fn handle_gcommand(command: GCommand, storage: &StorageRouter) -> GFra
         GCommand::Set(set_command) => SetHandler.handle(set_command, storage).await,
         GCommand::Del(del_command) => DelHandler.handle(del_command, storage).await,
         GCommand::Exists(exists_command) => ExistsHandler.handle(exists_command, storage).await,
-        GCommand::Incr(incr_gcommand) => todo!(),
-        GCommand::Decr(decr_gcommand) => todo!(),
+        GCommand::Incr(incr_gcommand) => IncrHandler.handle(incr_gcommand, storage).await,
+        GCommand::Decr(_decr_gcommand) => todo!("not implemented"),
         GCommand::ConfigGet(_config_get_command) => GFrame::Null,
     }
 }

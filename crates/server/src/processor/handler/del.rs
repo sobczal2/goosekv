@@ -1,6 +1,8 @@
 use futures::future::join_all;
 use goosekv_protocol::{
-    command::DelGCommand, data_type::GInteger, frame::GFrame
+    command::DelGCommand,
+    data_type::GInteger,
+    frame::GFrame,
 };
 
 use crate::{
@@ -18,7 +20,7 @@ impl Handler<DelGCommand> for DelHandler {
         let tasks =
             command.keys.iter().map(|key| storage.delete(DeleteRequest { key: key.clone() }));
         let deleted =
-            join_all(tasks).await.iter().filter(|response| response.value.is_some()).count();
+            join_all(tasks).await.iter().filter(|response| response.deleted.is_some()).count();
         GFrame::Integer(GInteger::new(deleted as i64))
     }
 }

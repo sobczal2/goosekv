@@ -2,7 +2,7 @@ use async_channel::{
     Receiver,
     Sender,
 };
-use tracing::info;
+use tracing::debug;
 
 use crate::storage::{
     Storage,
@@ -12,6 +12,7 @@ use crate::storage::{
         DeleteResponse,
         GetResponse,
         SetResponse,
+        UpdateResponse,
     },
 };
 
@@ -35,19 +36,24 @@ impl StorageActor {
         while let Ok(request) = self.receiver.recv().await {
             match request {
                 Request::Get(get_request, respond) => {
-                    info!("get value for key: {:?}", get_request.key);
+                    debug!("get value for key: {:?}", get_request.key);
                     let value = self.storage.get(&get_request.key);
                     respond.send(GetResponse { value }).unwrap();
                 }
                 Request::Set(set_request, respond) => {
-                    info!("set value for key: {:?}", set_request.key);
+                    debug!("set value for key: {:?}", set_request.key);
                     let original_value = self.storage.set(set_request.key, set_request.value);
                     respond.send(SetResponse { original_value }).unwrap();
                 }
                 Request::Delete(delete_request, respond) => {
-                    info!("delete value for key: {:?}", delete_request.key);
-                    let value = self.storage.delete(&delete_request.key);
-                    respond.send(DeleteResponse { value }).unwrap()
+                    debug!("delete value for key: {:?}", delete_request.key);
+                    let deleted = self.storage.delete(&delete_request.key);
+                    respond.send(DeleteResponse { deleted }).unwrap()
+                }
+                Request::Update(update_request, respond) => {
+                    debug!("update value for key: {:?}", update_request.key);
+                    let updated = self.storage.update(update_request.key, update_request.f);
+                    respond.send(UpdateResponse { updated }).unwrap()
                 }
             }
         }

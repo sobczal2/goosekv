@@ -1,5 +1,7 @@
 use goosekv_protocol::{
-    command::SetGCommand, data_type::GString, frame::GFrame
+    command::SetGCommand,
+    data_type::GString,
+    frame::GFrame,
 };
 
 use crate::{
@@ -23,7 +25,7 @@ impl Handler<SetGCommand> for SetHandler {
         storage
             .set(SetRequest {
                 key: command.key,
-                value: Value { data: Data::String(command.value) },
+                value: Value { data: Data::from_gstring(command.value) },
             })
             .await;
 

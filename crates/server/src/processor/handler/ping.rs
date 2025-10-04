@@ -1,5 +1,7 @@
 use goosekv_protocol::{
-    command::PingGCommand, data_type::GString, frame::GFrame
+    command::PingGCommand,
+    data_type::GString,
+    frame::GFrame,
 };
 
 use crate::{

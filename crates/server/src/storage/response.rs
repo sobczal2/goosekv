@@ -12,5 +12,10 @@ pub struct SetResponse {
 
 #[derive(Debug)]
 pub struct DeleteResponse {
-    pub value: Option<Value>,
+    pub deleted: Option<Value>,
+}
+
+#[derive(Debug)]
+pub struct UpdateResponse {
+    pub updated: Option<Value>,
 }

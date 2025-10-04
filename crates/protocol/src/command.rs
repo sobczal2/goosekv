@@ -92,7 +92,12 @@ impl GCommand {
             b"EXISTS" => Self::parse_exists(&frames[1..]),
             b"CONFIG" => {
                 if frames.len() >= 2 {
-                    match frames[1].as_bulk_string().map_err(|_| Error::InvalidFrame)?.bytes().as_ref() {
+                    match frames[1]
+                        .as_bulk_string()
+                        .map_err(|_| Error::InvalidFrame)?
+                        .bytes()
+                        .as_ref()
+                    {
                         b"GET" => Self::parse_config_get(&frames[2..]),
                         _ => Err(Error::InvalidCommand),
                     }
@@ -163,15 +168,13 @@ impl GCommand {
         let keys = frames
             .iter()
             .map(|frame| {
-                frame
-                    .as_bulk_string()
-                    .map_err(|_| Error::InvalidArg("invalid value".to_string()))
+                frame.as_bulk_string().map_err(|_| Error::InvalidArg("invalid value".to_string()))
             })
             .collect::<Result<_>>()?;
 
         Ok(GCommand::Del(DelGCommand { keys }))
     }
-    
+
     fn parse_exists(frames: &[GFrame]) -> Result<Self> {
         if frames.is_empty() {
             return Err(Error::NotEnoughArgs);
@@ -180,9 +183,7 @@ impl GCommand {
         let keys = frames
             .iter()
             .map(|frame| {
-                frame
-                    .as_bulk_string()
-                    .map_err(|_| Error::InvalidArg("invalid value".to_string()))
+                frame.as_bulk_string().map_err(|_| Error::InvalidArg("invalid value".to_string()))
             })
             .collect::<Result<_>>()?;
 

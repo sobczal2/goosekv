@@ -6,13 +6,23 @@ use crate::storage::{
         GetRequest,
         Request,
         SetRequest,
+        UpdateRequest,
     },
     response::{
         DeleteResponse,
         GetResponse,
         SetResponse,
+        UpdateResponse,
     },
 };
+
+macro_rules! handle_request {
+    ($request_name:ident, $request:expr, $sender:expr) => {{
+        let (sender, receiver) = oneshot::channel();
+        $sender.send(Request::$request_name($request, sender)).await.unwrap();
+        receiver.await.unwrap()
+    }};
+}
 
 #[derive(Clone)]
 pub struct StorageHandle {
@@ -25,20 +35,18 @@ impl StorageHandle {
     }
 
     pub async fn get(&self, request: GetRequest) -> GetResponse {
-        let (sender, receiver) = oneshot::channel();
-        self.sender.send(Request::Get(request, sender)).await.unwrap();
-        receiver.await.unwrap()
+        handle_request!(Get, request, self.sender)
     }
 
     pub async fn set(&self, request: SetRequest) -> SetResponse {
-        let (sender, receiver) = oneshot::channel();
-        self.sender.send(Request::Set(request, sender)).await.unwrap();
-        receiver.await.unwrap()
+        handle_request!(Set, request, self.sender)
     }
 
     pub async fn delete(&self, request: DeleteRequest) -> DeleteResponse {
-        let (sender, receiver) = oneshot::channel();
-        self.sender.send(Request::Delete(request, sender)).await.unwrap();
-        receiver.await.unwrap()
+        handle_request!(Delete, request, self.sender)
+    }
+
+    pub async fn update(&self, request: UpdateRequest) -> UpdateResponse {
+        handle_request!(Update, request, self.sender)
     }
 }

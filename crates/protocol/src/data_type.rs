@@ -1,4 +1,8 @@
-use std::{fmt, num::ParseIntError, str::FromStr};
+use std::{
+    fmt,
+    num::ParseIntError,
+    str::FromStr,
+};
 
 use bytes::Bytes;
 
@@ -23,7 +27,7 @@ impl GString {
     pub fn bytes(&self) -> Bytes {
         self.value.clone()
     }
-    
+
     pub fn len(&self) -> usize {
         self.value.len()
     }
@@ -57,6 +61,10 @@ impl GInteger {
     pub fn bytes(&self) -> Bytes {
         let value = self.value.to_string();
         Bytes::copy_from_slice(value.as_bytes())
+    }
+
+    pub fn checked_add(self, rhs: i64) -> Option<GInteger> {
+        self.value.checked_add(rhs).map(|value| GInteger { value })
     }
 }
 

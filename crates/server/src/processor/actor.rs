@@ -20,7 +20,10 @@ use glommio::{
     spawn_local_into,
 };
 use goosekv_protocol::{
-    command::GCommand, data_type::GString, frame::GFrame, stream::GFrameStream
+    command::GCommand,
+    data_type::GString,
+    frame::GFrame,
+    stream::GFrameStream,
 };
 use tracing::{
     error,

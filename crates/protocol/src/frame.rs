@@ -12,7 +12,10 @@ use bytes::{
 };
 use thiserror::Error;
 
-use crate::data_type::{GInteger, GString};
+use crate::data_type::{
+    GInteger,
+    GString,
+};
 
 pub const TERMINATOR: &[u8; 2] = b"\r\n";
 pub const SIMPLE_STRING_FIRST_BYTE: u8 = b'+';

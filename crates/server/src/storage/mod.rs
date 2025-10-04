@@ -1,4 +1,10 @@
-use std::collections::HashMap;
+use std::{
+    collections::{
+        HashMap,
+        hash_map::Entry,
+    },
+    sync::Arc,
+};
 
 use goosekv_protocol::data_type::GString;
 
@@ -32,12 +38,41 @@ impl Storage {
         self.data.remove(key)
     }
 
-    pub fn update<F, R>(&mut self, key: GString, f: F) -> Option<R>
-    where F: FnOnce(&mut Value) -> R
-    {
-        let entry = self.data.entry(key).and_modify(f);
+    /// Update a key and return new value. Returns updated value.
+    ///
+    /// Update function runs even if the key is not yet present.
+    pub fn update(
+        &mut self,
+        key: GString,
+        f: Arc<dyn Fn(Option<Value>) -> Option<Value> + Send + Sync>,
+    ) -> Option<Value> {
+        let entry = self.data.entry(key);
 
-        todo!()
+        match entry {
+            Entry::Occupied(mut occupied_entry) => {
+                let updated = f(Some(occupied_entry.get().clone()));
+                match updated {
+                    Some(updated) => {
+                        *occupied_entry.get_mut() = updated.clone();
+                        Some(updated)
+                    }
+                    None => {
+                        occupied_entry.remove_entry();
+                        None
+                    }
+                }
+            }
+            Entry::Vacant(vacant_entry) => {
+                let updated = f(None);
+                match updated {
+                    Some(updated) => {
+                        vacant_entry.insert(updated.clone());
+                        Some(updated)
+                    }
+                    None => None,
+                }
+            }
+        }
     }
 }
 
