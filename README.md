@@ -6,7 +6,7 @@ A simple thread per core key-value store implementation.
 
 ## Features
 
-- **RESP2 Protocol** Implements the RESP2 protocol communication, making it compatible with subset of REDIS commands.
+- **RESP2 Protocol** - makes it compatible with subset of REDIS commands.
 - **Supported Commands**
   - `PING`
   - `GET`
